@@ -48,6 +48,8 @@ PRAIAS_CONHECIDAS = [
     {"praia": "Candeias (Conj. Candeias II)", "municipio": "Jaboatão dos Guararapes"},
     {"praia": "Candeias (Rest. Candelária)", "municipio": "Jaboatão dos Guararapes"},
     {"praia": "Barra de Jangadas", "municipio": "Jaboatão dos Guararapes"},
+    # Igarassu
+    {"praia": "Praia do Capitão (Mangue Seco)", "municipio": "Igarassu"},
     # Litoral Sul - Cabo / Ipojuca
     {"praia": "Enseada dos Corais", "municipio": "Cabo de Santo Agostinho"},
     {"praia": "Gaibu", "municipio": "Cabo de Santo Agostinho"},
@@ -209,8 +211,8 @@ def dados_exemplo():
         "Candeias (Rest. Candelária)": "IMPRÓPRIA",
         "Barra de Jangadas": "PRÓPRIA",
         "Enseada dos Corais": "PRÓPRIA",
-        "Gaibu": "PRÓPRIA",
-        "Suape": "PRÓPRIA",
+        "Gaibu": "IMPRÓPRIA",
+        "Suape": "IMPRÓPRIA",
         "Porto de Galinhas": "PRÓPRIA",
         "Ponta de Serrambi": "PRÓPRIA",
         "Praia dos Carneiros": "PRÓPRIA",
