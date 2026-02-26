@@ -60,6 +60,7 @@ PRAIAS_CONHECIDAS = [
     {"praia": "Praia dos Carneiros", "municipio": "Tamandaré"},
     {"praia": "Tamandaré (Hotel Marinas)", "municipio": "Tamandaré"},
     {"praia": "Tamandaré (Rua Nilo Gouveia)", "municipio": "Tamandaré"},
+    {"praia": "São José da Coroa Grande", "municipio": "São José da Coroa Grande"},
 ]
 
 
@@ -218,6 +219,8 @@ def dados_exemplo():
         "Praia dos Carneiros": "PRÓPRIA",
         "Tamandaré (Hotel Marinas)": "PRÓPRIA",
         "Tamandaré (Rua Nilo Gouveia)": "PRÓPRIA",
+        "Praia do Capitão (Mangue Seco)": "IMPRÓPRIA",
+        "São José da Coroa Grande": "PRÓPRIA",
     }
 
     praias = []
