@@ -24,11 +24,6 @@ log = logging.getLogger("bot_praias")
 
 # Todas as 27 praias monitoradas pela CPRH com seus municípios
 PRAIAS_CONHECIDAS = [
-    # Litoral Norte
-    {"praia": "Carne de Vaca", "municipio": "Goiana"},
-    {"praia": "Pontas de Pedra (Pedrinhas)", "municipio": "Goiana"},
-    {"praia": "Pontas de Pedra (Praia do Meio)", "municipio": "Goiana"},
-    {"praia": "Catuama", "municipio": "Goiana"},
     {"praia": "Jaguaribe", "municipio": "Itamaracá"},
     {"praia": "Pilar", "municipio": "Itamaracá"},
     {"praia": "Forte Orange", "municipio": "Itamaracá"},
