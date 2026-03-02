@@ -261,6 +261,10 @@ def formatar_boletim():
         ""
     ]
 
+    if dados.get("sem_alteracoes"):
+        linhas.append("ℹ️ Sem alterações em relação ao boletim anterior.")
+        linhas.append("")
+
     municipios = {}
     for p in dados["praias"]:
         mun = p.get("municipio") or "Outras"
