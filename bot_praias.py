@@ -207,7 +207,7 @@ def dados_exemplo():
         "Candeias (Rest. Candelária)": "IMPRÓPRIA",
         "Barra de Jangadas": "PRÓPRIA",
         "Enseada dos Corais": "PRÓPRIA",
-        "Gaibu": "PRÓPRIA",
+        "Gaibu": "IMPRÓPRIA",
         "Suape": "IMPRÓPRIA",
         "Porto de Galinhas": "PRÓPRIA",
         "Ponta de Serrambi": "PRÓPRIA",
