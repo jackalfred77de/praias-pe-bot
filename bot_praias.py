@@ -22,15 +22,15 @@ DADOS_FILE = Path.home() / "dados_praias.json"
 logging.basicConfig(level=logging.INFO)
 log = logging.getLogger("bot_praias")
 
-# Todas as 27 praias monitoradas pela CPRH com seus municÃ­pios
+# Todas as 27 praias monitoradas pela CPRH com seus municÃÂ­pios
 PRAIAS_CONHECIDAS = [
-    {"praia": "Jaguaribe", "municipio": "ItamaracÃ¡"},
-    {"praia": "Pilar", "municipio": "ItamaracÃ¡"},
-    {"praia": "Forte Orange", "municipio": "ItamaracÃ¡"},
+    {"praia": "Jaguaribe", "municipio": "ItamaracÃÂ¡"},
+    {"praia": "Pilar", "municipio": "ItamaracÃÂ¡"},
+    {"praia": "Forte Orange", "municipio": "ItamaracÃÂ¡"},
     {"praia": "Maria Farinha", "municipio": "Paulista"},
     {"praia": "Janga (Cond. Roberto Barbosa)", "municipio": "Paulista"},
-    {"praia": "Janga (Rua BetÃ¢nia)", "municipio": "Paulista"},
-    # RegiÃ£o Metropolitana - Olinda/Recife
+    {"praia": "Janga (Rua BetÃÂ¢nia)", "municipio": "Paulista"},
+    # RegiÃÂ£o Metropolitana - Olinda/Recife
     {"praia": "Rio Doce", "municipio": "Olinda"},
     {"praia": "Bairro Novo", "municipio": "Olinda"},
     {"praia": "Carmo", "municipio": "Olinda"},
@@ -38,35 +38,35 @@ PRAIAS_CONHECIDAS = [
     {"praia": "Pina", "municipio": "Recife"},
     {"praia": "Boa Viagem (Posto 8)", "municipio": "Recife"},
     {"praia": "Boa Viagem (Posto 15)", "municipio": "Recife"},
-    # Litoral Sul - JaboatÃ£o
-    {"praia": "Piedade", "municipio": "JaboatÃ£o dos Guararapes"},
-    {"praia": "Candeias (Conj. Candeias II)", "municipio": "JaboatÃ£o dos Guararapes"},
-    {"praia": "Candeias (Rest. CandelÃ¡ria)", "municipio": "JaboatÃ£o dos Guararapes"},
-    {"praia": "Barra de Jangadas", "municipio": "JaboatÃ£o dos Guararapes"},
+    # Litoral Sul - JaboatÃÂ£o
+    {"praia": "Piedade", "municipio": "JaboatÃÂ£o dos Guararapes"},
+    {"praia": "Candeias (Conj. Candeias II)", "municipio": "JaboatÃÂ£o dos Guararapes"},
+    {"praia": "Candeias (Rest. CandelÃÂ¡ria)", "municipio": "JaboatÃÂ£o dos Guararapes"},
+    {"praia": "Barra de Jangadas", "municipio": "JaboatÃÂ£o dos Guararapes"},
     # Igarassu
-    {"praia": "Praia do CapitÃ£o (Mangue Seco)", "municipio": "Igarassu"},
+    {"praia": "Praia do CapitÃÂ£o (Mangue Seco)", "municipio": "Igarassu"},
     # Litoral Sul - Cabo / Ipojuca
     {"praia": "Enseada dos Corais", "municipio": "Cabo de Santo Agostinho"},
     {"praia": "Gaibu", "municipio": "Cabo de Santo Agostinho"},
     {"praia": "Suape", "municipio": "Cabo de Santo Agostinho"},
     {"praia": "Porto de Galinhas", "municipio": "Ipojuca"},
     {"praia": "Ponta de Serrambi", "municipio": "Ipojuca"},
-    # Litoral Sul - TamandarÃ©
-    {"praia": "Praia dos Carneiros", "municipio": "TamandarÃ©"},
-    {"praia": "TamandarÃ© (Hotel Marinas)", "municipio": "TamandarÃ©"},
-    {"praia": "TamandarÃ© (Rua Nilo Gouveia)", "municipio": "TamandarÃ©"},
-    {"praia": "SÃ£o JosÃ© da Coroa Grande", "municipio": "SÃ£o JosÃ© da Coroa Grande"},
+    # Litoral Sul - TamandarÃÂ©
+    {"praia": "Praia dos Carneiros", "municipio": "TamandarÃÂ©"},
+    {"praia": "TamandarÃÂ© (Hotel Marinas)", "municipio": "TamandarÃÂ©"},
+    {"praia": "TamandarÃÂ© (Rua Nilo Gouveia)", "municipio": "TamandarÃÂ©"},
+    {"praia": "SÃÂ£o JosÃÂ© da Coroa Grande", "municipio": "SÃÂ£o JosÃÂ© da Coroa Grande"},
 ]
 
 
-# âââ Scraper CPRH âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+# Ã¢ÂÂÃ¢ÂÂÃ¢ÂÂ Scraper CPRH Ã¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂ
 
 def parse_status(texto):
     t = texto.upper().strip()
     if "IMPR" in t:
-        return "IMPRÃPRIA"
+        return "IMPRÃÂPRIA"
     if "PR" in t:
-        return "PRÃPRIA"
+        return "PRÃÂPRIA"
     return None
 
 
@@ -91,16 +91,16 @@ def scrape_pdf(pdf_url):
                         continue
 
                     # Detecta linha de status
-                    if re.match(r"^(PR[OÃ]PRIA|IMPR[OÃ]PRIA)$", linha, re.IGNORECASE):
+                    if re.match(r"^(PR[OÃÂ]PRIA|IMPR[OÃÂ]PRIA)$", linha, re.IGNORECASE):
                         status_atual = parse_status(linha)
                         continue
 
-                    # Detecta municÃ­pio (linha curta sem nÃºmeros)
+                    # Detecta municÃÂ­pio (linha curta sem nÃÂºmeros)
                     if (len(linha) < 35
                             and not any(c.isdigit() for c in linha)
                             and "praia" not in linha.lower()
                             and "em frente" not in linha.lower()
-                            and linha not in ["PRÃPRIA", "IMPRÃPRIA"]):
+                            and linha not in ["PRÃÂPRIA", "IMPRÃÂPRIA"]):
                         municipio_atual = linha
                         continue
 
@@ -108,7 +108,7 @@ def scrape_pdf(pdf_url):
                     if ("praia" in linha.lower() or "em frente" in linha.lower()) and status_atual:
                         # Extrai nome limpo da praia
                         nome = re.sub(r"(?i)^praia\s+(de|da|do|dos|das)\s+", "", linha)
-                        nome = nome.split(",")[0].split("â")[0].strip()
+                        nome = nome.split(",")[0].split("Ã¢ÂÂ")[0].strip()
                         praias.append({
                             "praia": nome,
                             "status": status_atual,
@@ -116,7 +116,7 @@ def scrape_pdf(pdf_url):
                         })
 
         pdf_path.unlink(missing_ok=True)
-        log.info(f"PDF extraÃ­do: {len(praias)} praias")
+        log.info(f"PDF extraÃÂ­do: {len(praias)} praias")
 
     except Exception as e:
         log.error(f"Erro ao processar PDF: {e}")
@@ -141,7 +141,7 @@ def encontrar_pdf_cprh():
                     return href
                 return "https://www2.cprh.pe.gov.br/" + href.lstrip("/")
 
-        # Tenta tambÃ©m na pÃ¡gina de uploads do WordPress
+        # Tenta tambÃÂ©m na pÃÂ¡gina de uploads do WordPress
         for a in soup.find_all("a", href=True):
             href = a["href"]
             if "uploads" in href and href.lower().endswith(".pdf"):
@@ -155,10 +155,10 @@ def encontrar_pdf_cprh():
 
 def atualizar_dados():
     """Busca dados da CPRH e atualiza o arquivo local."""
-    log.info("ð Atualizando dados da CPRH...")
+    log.info("Ã°ÂÂÂ Atualizando dados da CPRH...")
 
     if not PDF_SUPPORT:
-        log.error("pdfplumber nÃ£o instalado")
+        log.error("pdfplumber nÃÂ£o instalado")
         return
 
     pdf_url = encontrar_pdf_cprh()
@@ -167,55 +167,55 @@ def atualizar_dados():
     if pdf_url:
         praias = scrape_pdf(pdf_url)
     else:
-        log.warning("PDF nÃ£o encontrado no site da CPRH")
+        log.warning("PDF nÃÂ£o encontrado no site da CPRH")
 
     if praias:
         dados = {
             "atualizado_em": datetime.now().isoformat(),
-            "total_proprias": sum(1 for p in praias if p["status"] == "PRÃPRIA"),
-            "total_improprias": sum(1 for p in praias if p["status"] == "IMPRÃPRIA"),
+            "total_proprias": sum(1 for p in praias if p["status"] == "PRÃÂPRIA"),
+            "total_improprias": sum(1 for p in praias if p["status"] == "IMPRÃÂPRIA"),
             "praias": praias,
             "fonte": "cprh"
         }
         DADOS_FILE.write_text(json.dumps(dados, ensure_ascii=False, indent=2), encoding="utf-8")
-        log.info(f"â {len(praias)} praias salvas da CPRH")
+        log.info(f"Ã¢ÂÂ {len(praias)} praias salvas da CPRH")
     else:
-        log.warning("â ï¸ Scraper nÃ£o encontrou dados â mantendo dados anteriores")
+        log.warning("Ã¢ÂÂ Ã¯Â¸Â Scraper nÃÂ£o encontrou dados Ã¢ÂÂ mantendo dados anteriores")
 
 
-# âââ Dados de exemplo (fallback com todas as 27 praias) âââââââââââââââââââââââ
+# Ã¢ÂÂÃ¢ÂÂÃ¢ÂÂ Dados de exemplo (fallback com todas as 27 praias) Ã¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂ
 
 def dados_exemplo():
     """Retorna dados de exemplo com todas as praias conhecidas."""
     # Baseado no boletim mais recente (semana 9/2026)
     status_map = {
-        "Jaguaribe": "IMPRÃPRIA",
-        "Pilar": "PRÃPRIA",
-        "Forte Orange": "PRÃPRIA",
-        "Maria Farinha": "PRÃPRIA",
-        "Janga (Cond. Roberto Barbosa)": "PRÃPRIA",
-        "Janga (Rua BetÃ¢nia)": "PRÃPRIA",
-        "Rio Doce": "IMPRÃPRIA",
-        "Bairro Novo": "IMPRÃPRIA",
-        "Carmo": "IMPRÃPRIA",
-        "Milagres": "IMPRÃPRIA",
-        "Pina": "IMPRÃPRIA",
-        "Boa Viagem (Posto 8)": "PRÃPRIA",
-        "Boa Viagem (Posto 15)": "PRÃPRIA",
-        "Piedade": "PRÃPRIA",
-        "Candeias (Conj. Candeias II)": "IMPRÃPRIA",
-        "Candeias (Rest. CandelÃ¡ria)": "IMPRÃPRIA",
-        "Barra de Jangadas": "PRÃPRIA",
-        "Enseada dos Corais": "PRÃPRIA",
-        "Gaibu": "IMPRÃPRIA",
-        "Suape": "IMPRÃPRIA",
-        "Porto de Galinhas": "PRÃPRIA",
-        "Ponta de Serrambi": "PRÃPRIA",
-        "Praia dos Carneiros": "PRÃPRIA",
-        "TamandarÃ© (Hotel Marinas)": "PRÃPRIA",
-        "TamandarÃ© (Rua Nilo Gouveia)": "PRÃPRIA",
-        "Praia do CapitÃ£o (Mangue Seco)": "IMPRÃPRIA",
-        "SÃ£o JosÃ© da Coroa Grande": "PRÃPRIA",
+        "Jaguaribe": "IMPRÃÂPRIA",
+        "Pilar": "PRÃÂPRIA",
+        "Forte Orange": "PRÃÂPRIA",
+        "Maria Farinha": "PRÃÂPRIA",
+        "Janga (Cond. Roberto Barbosa)": "PRÃÂPRIA",
+        "Janga (Rua BetÃÂ¢nia)": "PRÃÂPRIA",
+        "Rio Doce": "IMPRÃÂPRIA",
+        "Bairro Novo": "IMPRÃÂPRIA",
+        "Carmo": "IMPRÃÂPRIA",
+        "Milagres": "IMPRÃÂPRIA",
+        "Pina": "IMPRÃÂPRIA",
+        "Boa Viagem (Posto 8)": "PRÃÂPRIA",
+        "Boa Viagem (Posto 15)": "PRÃÂPRIA",
+        "Piedade": "PRÃÂPRIA",
+        "Candeias (Conj. Candeias II)": "IMPRÃÂPRIA",
+        "Candeias (Rest. CandelÃÂ¡ria)": "IMPRÃÂPRIA",
+        "Barra de Jangadas": "PRÃÂPRIA",
+        "Enseada dos Corais": "PRÃÂPRIA",
+        "Gaibu": "IMPRÃÂPRIA",
+        "Suape": "IMPRÃÂPRIA",
+        "Porto de Galinhas": "PRÃÂPRIA",
+        "Ponta de Serrambi": "PRÃÂPRIA",
+        "Praia dos Carneiros": "PRÃÂPRIA",
+        "TamandarÃÂ© (Hotel Marinas)": "PRÃÂPRIA",
+        "TamandarÃÂ© (Rua Nilo Gouveia)": "PRÃÂPRIA",
+        "Praia do CapitÃÂ£o (Mangue Seco)": "IMPRÃÂPRIA",
+        "SÃÂ£o JosÃÂ© da Coroa Grande": "PRÃÂPRIA",
     }
 
     praias = []
@@ -223,15 +223,16 @@ def dados_exemplo():
         praias.append({
             "praia": p["praia"],
             "municipio": p["municipio"],
-            "status": status_map.get(p["praia"], "PRÃPRIA")
+            "status": status_map.get(p["praia"], "PRÃÂPRIA")
         })
 
     return {
         "atualizado_em": "2026-02-27T00:00:00",
-        "total_proprias": sum(1 for p in praias if p["status"] == "PRÃPRIA"),
-        "total_improprias": sum(1 for p in praias if p["status"] == "IMPRÃPRIA"),
+        "total_proprias": sum(1 for p in praias if p["status"] == "PRÃÂPRIA"),
+        "total_improprias": sum(1 for p in praias if p["status"] == "IMPRÃÂPRIA"),
         "praias": praias,
-        "fonte": "exemplo"
+        "fonte": "exemplo",
+        "sem_alteracoes": True
     }
 
 
@@ -246,7 +247,7 @@ def carregar_dados():
     return d
 
 
-# âââ FormataÃ§Ã£o âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+# Ã¢ÂÂÃ¢ÂÂÃ¢ÂÂ FormataÃÂ§ÃÂ£o Ã¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂ
 
 def formatar_boletim():
     dados = carregar_dados()
@@ -254,11 +255,15 @@ def formatar_boletim():
     eh_exemplo = dados.get("fonte") == "exemplo"
 
     linhas = [
-        "ðï¸ BALNEABILIDADE â PERNAMBUCO",
-        f"ð Boletim de: {data}" + (" _(referÃªncia)_" if eh_exemplo else ""),
-        f"â PrÃ³prias: {dados['total_proprias']}  |  â ImprÃ³prias: {dados['total_improprias']}",
+        "Ã°ÂÂÂÃ¯Â¸Â BALNEABILIDADE Ã¢ÂÂ PERNAMBUCO",
+        f"Ã°ÂÂÂ Boletim de: {data}" + (" _(referÃÂªncia)_" if eh_exemplo else ""),
+        f"Ã¢ÂÂ PrÃÂ³prias: {dados['total_proprias']}  |  Ã¢ÂÂ ImprÃÂ³prias: {dados['total_improprias']}",
         ""
     ]
+
+    if dados.get("sem_alteracoes"):
+        linhas.append("ℹ️ Sem alterações em relação ao boletim anterior.")
+        linhas.append("")
 
     municipios = {}
     for p in dados["praias"]:
@@ -266,19 +271,19 @@ def formatar_boletim():
         municipios.setdefault(mun, []).append(p)
 
     for mun, lista in municipios.items():
-        linhas.append(f"ð {mun.upper()}")
+        linhas.append(f"Ã°ÂÂÂ {mun.upper()}")
         for p in lista:
-            icone = "ð¢" if p["status"] == "PRÃPRIA" else "ð´"
+            icone = "Ã°ÂÂÂ¢" if p["status"] == "PRÃÂPRIA" else "Ã°ÂÂÂ´"
             linhas.append(f"  {icone} {p['praia']}")
         linhas.append("")
 
-    linhas.append("ð Fonte: CPRH â cprh.pe.gov.br")
-    linhas.append("â ï¸ Evite o mar 24h apÃ³s chuvas fortes")
+    linhas.append("Ã°ÂÂÂ Fonte: CPRH Ã¢ÂÂ cprh.pe.gov.br")
+    linhas.append("Ã¢ÂÂ Ã¯Â¸Â Evite o mar 24h apÃÂ³s chuvas fortes")
 
     return "\n".join(linhas)
 
 
-# âââ Bot Telegram âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+# Ã¢ÂÂÃ¢ÂÂÃ¢ÂÂ Bot Telegram Ã¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂ
 
 async def responder(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(formatar_boletim())
@@ -294,15 +299,15 @@ def main():
     # Garante que temos dados (reais ou exemplo)
     carregar_dados()
 
-    # Agenda atualizaÃ§Ã£o toda sexta Ã s 14h
+    # Agenda atualizaÃÂ§ÃÂ£o toda sexta ÃÂ s 14h
     scheduler = BackgroundScheduler()
     scheduler.add_job(atualizar_dados, "cron", day_of_week="fri", hour=14, minute=0)
     scheduler.start()
-    log.info("â° Agendamento: toda sexta Ã s 14h")
+    log.info("Ã¢ÂÂ° Agendamento: toda sexta ÃÂ s 14h")
 
     app = Application.builder().token(TELEGRAM_TOKEN).build()
     app.add_handler(MessageHandler(filters.ALL, responder))
-    log.info("ð¤ Bot iniciado!")
+    log.info("Ã°ÂÂ¤Â Bot iniciado!")
     app.run_polling(drop_pending_updates=True)
 
 
