@@ -187,7 +187,7 @@ def atualizar_dados():
 
 def dados_exemplo():
     """Retorna dados de exemplo com todas as praias conhecidas."""
-    # Baseado no boletim mais recente (semana 9/2026)
+    # Baseado no boletim mais recente (semana 10/2026)
     status_map = {
         "Jaguaribe": "IMPRÓPRIA",
         "Pilar": "PRÓPRIA",
@@ -196,7 +196,7 @@ def dados_exemplo():
         "Janga (Cond. Roberto Barbosa)": "PRÓPRIA",
         "Janga (Rua Betânia)": "PRÓPRIA",
         "Rio Doce": "IMPRÓPRIA",
-        "Bairro Novo": "IMPRÓPRIA",
+        "Bairro Novo": "PRÓPRIA",
         "Carmo": "IMPRÓPRIA",
         "Milagres": "IMPRÓPRIA",
         "Pina": "IMPRÓPRIA",
@@ -214,7 +214,7 @@ def dados_exemplo():
         "Praia dos Carneiros": "PRÓPRIA",
         "Tamandaré (Hotel Marinas)": "PRÓPRIA",
         "Tamandaré (Rua Nilo Gouveia)": "PRÓPRIA",
-        "Praia do Capitão (Mangue Seco)": "IMPRÓPRIA",
+        "Praia do Capitão (Mangue Seco)": "PRÓPRIA",
         "São José da Coroa Grande": "PRÓPRIA",
     }
 
@@ -227,8 +227,9 @@ def dados_exemplo():
         })
 
     return {
-        "atualizado_em": "2026-02-27T00:00:00",
-        "sem_alteracoes": True,
+        "atualizado_em": "2026-03-06T00:00:00",
+        "alteracoes_melhora": ["Praia do Capitão (Mangue Seco)", "Bairro Novo"],
+        "alteracoes_piora": [],
         "total_proprias": sum(1 for p in praias if p["status"] == "PRÓPRIA"),
         "total_improprias": sum(1 for p in praias if p["status"] == "IMPRÓPRIA"),
         "praias": praias,
@@ -261,8 +262,16 @@ def formatar_boletim():
         ""
     ]
 
+    melhora = dados.get("alteracoes_melhora", [])
+    piora = dados.get("alteracoes_piora", [])
     if dados.get("sem_alteracoes"):
         linhas.append("ℹ️ Sem alterações em relação ao boletim anterior.")
+        linhas.append("")
+    elif melhora or piora:
+        if melhora:
+            linhas.append(f"📈 Melhoraram ({len(melhora)}): {', '.join(melhora)}")
+        if piora:
+            linhas.append(f"📉 Pioraram ({len(piora)}): {', '.join(piora)}")
         linhas.append("")
 
     municipios = {}
