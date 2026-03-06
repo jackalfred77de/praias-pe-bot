@@ -187,7 +187,7 @@ def atualizar_dados():
 
 def dados_exemplo():
     """Retorna dados de exemplo com todas as praias conhecidas."""
-    # Baseado no boletim mais recente (semana 10/2026)
+    # Baseado no boletim mais recente (semana 10/2026) 
     status_map = {
         "Jaguaribe": "IMPRÓPRIA",
         "Pilar": "PRÓPRIA",
