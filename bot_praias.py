@@ -238,14 +238,19 @@ def dados_exemplo():
 
 
 def carregar_dados():
+    exemplo = dados_exemplo()
     if DADOS_FILE.exists():
         dados = json.loads(DADOS_FILE.read_text(encoding="utf-8"))
-        # Se tem dados reais da CPRH, usa. Se tem menos de 10 praias, usa exemplo
+        # Se tem dados reais da CPRH e são mais recentes que o exemplo, usa
         if len(dados.get("praias", [])) >= 10:
-            return dados
-    d = dados_exemplo()
-    DADOS_FILE.write_text(json.dumps(d, ensure_ascii=False, indent=2), encoding="utf-8")
-    return d
+            data_disco = dados.get("atualizado_em", "2000-01-01")
+            data_exemplo = exemplo.get("atualizado_em", "2000-01-01")
+            if data_disco >= data_exemplo:
+                return dados
+            # Exemplo é mais recente (boletim actualizado no código) — usa exemplo
+            log.info(f"⚠️ Dados em disco ({data_disco}) mais antigos que exemplo ({data_exemplo}) — usando exemplo")
+    DADOS_FILE.write_text(json.dumps(exemplo, ensure_ascii=False, indent=2), encoding="utf-8")
+    return exemplo
 
 
 # ─── Formatação ───────────────────────────────────────────────────────────────
