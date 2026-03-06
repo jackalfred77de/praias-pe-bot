@@ -307,6 +307,19 @@ def main():
     import urllib3
     urllib3.disable_warnings()
 
+    # Se o exemplo é mais recente que os dados em disco, apaga o cache
+    exemplo = dados_exemplo()
+    if DADOS_FILE.exists():
+        try:
+            dados_disco = json.loads(DADOS_FILE.read_text(encoding="utf-8"))
+            data_disco = dados_disco.get("atualizado_em", "2000-01-01")
+            data_exemplo = exemplo.get("atualizado_em", "2000-01-01")
+            if data_exemplo > data_disco:
+                DADOS_FILE.unlink()
+                log.info(f"🗑️ Cache apagado: exemplo ({data_exemplo}) mais recente que disco ({data_disco})")
+        except Exception as e:
+            log.warning(f"Erro ao verificar cache: {e}")
+
     # Tenta buscar dados reais da CPRH
     atualizar_dados()
 
