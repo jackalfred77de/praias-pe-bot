@@ -187,13 +187,13 @@ def atualizar_dados():
 
 def dados_exemplo():
     """Retorna dados de exemplo com todas as praias conhecidas."""
-    # Baseado no boletim mais recente (semana 10/2026) 
+    # Baseado no boletim mais recente (semana 12/2026)
     status_map = {
         "Jaguaribe": "IMPRÓPRIA",
         "Pilar": "PRÓPRIA",
         "Forte Orange": "PRÓPRIA",
         "Maria Farinha": "PRÓPRIA",
-        "Janga (Cond. Roberto Barbosa)": "PRÓPRIA",
+        "Janga (Cond. Roberto Barbosa)": "IMPRÓPRIA",
         "Janga (Rua Betânia)": "PRÓPRIA",
         "Rio Doce": "IMPRÓPRIA",
         "Bairro Novo": "PRÓPRIA",
@@ -205,7 +205,7 @@ def dados_exemplo():
         "Piedade": "PRÓPRIA",
         "Candeias (Conj. Candeias II)": "IMPRÓPRIA",
         "Candeias (Rest. Candelária)": "IMPRÓPRIA",
-        "Barra de Jangadas": "PRÓPRIA",
+        "Barra de Jangadas": "IMPRÓPRIA",
         "Enseada dos Corais": "PRÓPRIA",
         "Gaibu": "IMPRÓPRIA",
         "Suape": "IMPRÓPRIA",
@@ -227,9 +227,9 @@ def dados_exemplo():
         })
 
     return {
-        "atualizado_em": "2026-03-06T00:00:00",
-        "alteracoes_melhora": ["Praia do Capitão (Mangue Seco)", "Bairro Novo"],
-        "alteracoes_piora": [],
+        "atualizado_em": "2026-03-20T00:00:00",
+        "alteracoes_melhora": [],
+        "alteracoes_piora": ["Janga (Cond. Roberto Barbosa)", "Barra de Jangadas"],
         "total_proprias": sum(1 for p in praias if p["status"] == "PRÓPRIA"),
         "total_improprias": sum(1 for p in praias if p["status"] == "IMPRÓPRIA"),
         "praias": praias,
