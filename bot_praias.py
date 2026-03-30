@@ -2,6 +2,8 @@ import os
 import re
 import json
 import logging
+import threading
+from http.server import HTTPServer, BaseHTTPRequestHandler
 from datetime import datetime
 from pathlib import Path
 
@@ -58,6 +60,28 @@ PRAIAS_CONHECIDAS = [
     {"praia": "Tamandaré (Rua Nilo Gouveia)", "municipio": "Tamandaré"},
     {"praia": "São José da Coroa Grande", "municipio": "São José da Coroa Grande"},
 ]
+
+
+# ─── Mini HTTP server para Azure App Service F1 ──────────────────────────────
+
+class HealthHandler(BaseHTTPRequestHandler):
+    """Responde a health checks do Azure na porta $PORT."""
+    def do_GET(self):
+        self.send_response(200)
+        self.send_header("Content-Type", "text/plain; charset=utf-8")
+        self.end_headers()
+        self.wfile.write("🤖 Bot Praias PE — online".encode("utf-8"))
+
+    def log_message(self, format, *args):
+        pass  # silencia logs de health check
+
+def iniciar_http_server():
+    """Inicia HTTP server numa thread separada para manter o F1 acordado."""
+    port = int(os.environ.get("PORT", "8080"))
+    server = HTTPServer(("0.0.0.0", port), HealthHandler)
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    log.info(f"🌐 HTTP health server na porta {port}")
 
 
 # ─── Scraper CPRH ─────────────────────────────────────────────────────────────
@@ -188,7 +212,8 @@ def atualizar_dados():
 
 def dados_exemplo():
     """Retorna dados de exemplo com todas as praias conhecidas."""
-    # Baseado no boletim mais recente (semana 12/2026)
+    # Boletim 13/2026 — Período 27/03 a 02/04, coleta 23/03
+    # 17 próprias / 10 impróprias
     status_map = {
         "Jaguaribe": "IMPRÓPRIA",
         "Pilar": "PRÓPRIA",
@@ -197,19 +222,19 @@ def dados_exemplo():
         "Janga (Cond. Roberto Barbosa)": "IMPRÓPRIA",
         "Janga (Rua Betânia)": "PRÓPRIA",
         "Rio Doce": "IMPRÓPRIA",
-        "Bairro Novo": "PRÓPRIA",
+        "Bairro Novo": "IMPRÓPRIA",           # ← piorou (era PRÓPRIA no bol. 12)
         "Carmo": "IMPRÓPRIA",
         "Milagres": "IMPRÓPRIA",
         "Pina": "IMPRÓPRIA",
         "Boa Viagem (Posto 8)": "PRÓPRIA",
         "Boa Viagem (Posto 15)": "PRÓPRIA",
         "Piedade": "PRÓPRIA",
-        "Candeias (Conj. Candeias II)": "IMPRÓPRIA",
+        "Candeias (Conj. Candeias II)": "PRÓPRIA",  # ← melhorou (era IMPRÓPRIA no bol. 12)
         "Candeias (Rest. Candelária)": "IMPRÓPRIA",
         "Barra de Jangadas": "IMPRÓPRIA",
         "Enseada dos Corais": "PRÓPRIA",
         "Gaibu": "IMPRÓPRIA",
-        "Suape": "IMPRÓPRIA",
+        "Suape": "PRÓPRIA",                    # ← melhorou (era IMPRÓPRIA no bol. 12)
         "Porto de Galinhas": "PRÓPRIA",
         "Ponta de Serrambi": "PRÓPRIA",
         "Praia dos Carneiros": "PRÓPRIA",
@@ -228,9 +253,9 @@ def dados_exemplo():
         })
 
     return {
-        "atualizado_em": "2026-03-20T00:00:00",
-        "alteracoes_melhora": [],
-        "alteracoes_piora": ["Janga (Cond. Roberto Barbosa)", "Barra de Jangadas"],
+        "atualizado_em": "2026-03-27T00:00:00",
+        "alteracoes_melhora": ["Candeias (Conj. Candeias II)", "Suape"],
+        "alteracoes_piora": ["Bairro Novo"],
         "total_proprias": sum(1 for p in praias if p["status"] == "PRÓPRIA"),
         "total_improprias": sum(1 for p in praias if p["status"] == "IMPRÓPRIA"),
         "praias": praias,
@@ -307,6 +332,9 @@ async def responder(update: Update, context: ContextTypes.DEFAULT_TYPE):
 def main():
     import urllib3
     urllib3.disable_warnings()
+
+    # Inicia HTTP server para Azure App Service F1 health checks
+    iniciar_http_server()
 
     # Se o exemplo é mais recente que os dados em disco, apaga o cache
     exemplo = dados_exemplo()
