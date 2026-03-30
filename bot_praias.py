@@ -1,3 +1,4 @@
+import os
 import re
 import json
 import logging
@@ -16,7 +17,7 @@ try:
 except ImportError:
     PDF_SUPPORT = False
 
-TELEGRAM_TOKEN = "8537829811:AAEMKGX_w3kRLPwEQFQ-QnUWO3BG9YmJECk"
+TELEGRAM_TOKEN = os.environ.get("TELEGRAM_TOKEN", "8537829811:AAEMKGX_w3kRLPwEQFQ-QnUWO3BG9YmJECk")
 DADOS_FILE = Path.home() / "dados_praias.json"
 
 logging.basicConfig(level=logging.INFO)
