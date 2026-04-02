@@ -212,7 +212,7 @@ def atualizar_dados():
 
 def dados_exemplo():
     """Retorna dados de exemplo com todas as praias conhecidas."""
-    # Boletim 13/2026 — Período 27/03 a 02/04, coleta 23/03
+    # Boletim 14/2026 — Período 03/04 a 09/04, coleta 30/03
     # 17 próprias / 10 impróprias
     status_map = {
         "Jaguaribe": "IMPRÓPRIA",
@@ -222,19 +222,19 @@ def dados_exemplo():
         "Janga (Cond. Roberto Barbosa)": "IMPRÓPRIA",
         "Janga (Rua Betânia)": "PRÓPRIA",
         "Rio Doce": "IMPRÓPRIA",
-        "Bairro Novo": "IMPRÓPRIA",           # ← piorou (era PRÓPRIA no bol. 12)
+        "Bairro Novo": "PRÓPRIA",              # ← melhorou (era IMPRÓPRIA no bol. 13)
         "Carmo": "IMPRÓPRIA",
         "Milagres": "IMPRÓPRIA",
         "Pina": "IMPRÓPRIA",
         "Boa Viagem (Posto 8)": "PRÓPRIA",
         "Boa Viagem (Posto 15)": "PRÓPRIA",
         "Piedade": "PRÓPRIA",
-        "Candeias (Conj. Candeias II)": "PRÓPRIA",  # ← melhorou (era IMPRÓPRIA no bol. 12)
+        "Candeias (Conj. Candeias II)": "PRÓPRIA",
         "Candeias (Rest. Candelária)": "IMPRÓPRIA",
         "Barra de Jangadas": "IMPRÓPRIA",
         "Enseada dos Corais": "PRÓPRIA",
         "Gaibu": "IMPRÓPRIA",
-        "Suape": "PRÓPRIA",                    # ← melhorou (era IMPRÓPRIA no bol. 12)
+        "Suape": "IMPRÓPRIA",                   # ← piorou (era PRÓPRIA no bol. 13)
         "Porto de Galinhas": "PRÓPRIA",
         "Ponta de Serrambi": "PRÓPRIA",
         "Praia dos Carneiros": "PRÓPRIA",
@@ -253,9 +253,9 @@ def dados_exemplo():
         })
 
     return {
-        "atualizado_em": "2026-03-27T00:00:00",
-        "alteracoes_melhora": ["Candeias (Conj. Candeias II)", "Suape"],
-        "alteracoes_piora": ["Bairro Novo"],
+        "atualizado_em": "2026-04-03T00:00:00",
+        "alteracoes_melhora": ["Bairro Novo"],
+        "alteracoes_piora": ["Suape"],
         "total_proprias": sum(1 for p in praias if p["status"] == "PRÓPRIA"),
         "total_improprias": sum(1 for p in praias if p["status"] == "IMPRÓPRIA"),
         "praias": praias,
