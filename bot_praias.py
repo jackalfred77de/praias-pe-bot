@@ -254,6 +254,7 @@ def dados_exemplo():
 
     return {
         "atualizado_em": "2026-04-03T00:00:00",
+        "boletim_nr": "14/2026",
         "alteracoes_melhora": ["Bairro Novo"],
         "alteracoes_piora": ["Suape"],
         "total_proprias": sum(1 for p in praias if p["status"] == "PRÓPRIA"),
@@ -288,7 +289,7 @@ def formatar_boletim():
 
     linhas = [
         "🏖️ BALNEABILIDADE — PERNAMBUCO",
-        f"📅 Boletim de: {data}" + (" _(referência)_" if eh_exemplo else ""),
+        f"📅 Boletim de: {data}" + (f" _(ref. {dados['boletim_nr']})_" if eh_exemplo and dados.get("boletim_nr") else (" _(referência)_" if eh_exemplo else "")),
         f"✅ Próprias: {dados['total_proprias']}  |  ❌ Impróprias: {dados['total_improprias']}",
         ""
     ]
