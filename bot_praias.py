@@ -84,6 +84,18 @@ def iniciar_http_server():
     log.info(f"🌐 HTTP health server na porta {port}")
 
 
+def self_ping():
+    """Faz ping no proprio endpoint para evitar que o Azure F1 durma."""
+    url = os.environ.get("WEBSITE_HOSTNAME", "")
+    if not url:
+        return
+    try:
+        resp = requests.get(f"https://{url}/", timeout=10)
+        log.info(f"Self-ping: {resp.status_code}")
+    except Exception as e:
+        log.warning(f"Self-ping falhou: {e}")
+
+
 # ─── Scraper CPRH ─────────────────────────────────────────────────────────────
 
 def parse_status(texto):
@@ -212,17 +224,17 @@ def atualizar_dados():
 
 def dados_exemplo():
     """Retorna dados de exemplo com todas as praias conhecidas."""
-    # Boletim 14/2026 — Período 03/04 a 09/04, coleta 30/03
-    # 17 próprias / 10 impróprias
+    # Boletim 15/2026 — Período 10/04 a 16/04, coleta 06/04
+    # 15 próprias / 12 impróprias
     status_map = {
         "Jaguaribe": "IMPRÓPRIA",
         "Pilar": "PRÓPRIA",
         "Forte Orange": "PRÓPRIA",
-        "Maria Farinha": "PRÓPRIA",
+        "Maria Farinha": "IMPRÓPRIA",            # ← piorou (era PRÓPRIA no bol. 14)
         "Janga (Cond. Roberto Barbosa)": "IMPRÓPRIA",
-        "Janga (Rua Betânia)": "PRÓPRIA",
+        "Janga (Rua Betânia)": "IMPRÓPRIA",      # ← piorou (era PRÓPRIA no bol. 14)
         "Rio Doce": "IMPRÓPRIA",
-        "Bairro Novo": "PRÓPRIA",              # ← melhorou (era IMPRÓPRIA no bol. 13)
+        "Bairro Novo": "IMPRÓPRIA",              # ← piorou (era PRÓPRIA no bol. 14)
         "Carmo": "IMPRÓPRIA",
         "Milagres": "IMPRÓPRIA",
         "Pina": "IMPRÓPRIA",
@@ -234,7 +246,7 @@ def dados_exemplo():
         "Barra de Jangadas": "IMPRÓPRIA",
         "Enseada dos Corais": "PRÓPRIA",
         "Gaibu": "IMPRÓPRIA",
-        "Suape": "IMPRÓPRIA",                   # ← piorou (era PRÓPRIA no bol. 13)
+        "Suape": "IMPRÓPRIA",
         "Porto de Galinhas": "PRÓPRIA",
         "Ponta de Serrambi": "PRÓPRIA",
         "Praia dos Carneiros": "PRÓPRIA",
@@ -253,10 +265,10 @@ def dados_exemplo():
         })
 
     return {
-        "atualizado_em": "2026-04-03T00:00:00",
-        "boletim_nr": "14/2026",
-        "alteracoes_melhora": ["Bairro Novo"],
-        "alteracoes_piora": ["Suape"],
+        "atualizado_em": "2026-04-10T00:00:00",
+        "boletim_nr": "15/2026",
+        "alteracoes_melhora": [],
+        "alteracoes_piora": ["Maria Farinha", "Janga (Rua Betânia)", "Bairro Novo"],
         "total_proprias": sum(1 for p in praias if p["status"] == "PRÓPRIA"),
         "total_improprias": sum(1 for p in praias if p["status"] == "IMPRÓPRIA"),
         "praias": praias,
@@ -359,6 +371,8 @@ def main():
     # Agenda atualização toda sexta às 14h
     scheduler = BackgroundScheduler()
     scheduler.add_job(atualizar_dados, "cron", day_of_week="fri", hour=14, minute=0)
+    scheduler.add_job(self_ping, "interval", minutes=14)
+    log.info("Self-ping a cada 14 min ativado")
     scheduler.start()
     log.info("⏰ Agendamento: toda sexta às 14h")
 
