@@ -27,37 +27,42 @@ log = logging.getLogger("bot_praias")
 
 # Todas as 27 praias monitoradas pela CPRH com seus municípios
 PRAIAS_CONHECIDAS = [
+    # Itamaracá
     {"praia": "Jaguaribe", "municipio": "Itamaracá"},
     {"praia": "Pilar", "municipio": "Itamaracá"},
     {"praia": "Forte Orange", "municipio": "Itamaracá"},
+    # Igarassu
+    {"praia": "Praia do Capitão (Mangue Seco)", "municipio": "Igarassu"},
+    # Paulista
     {"praia": "Maria Farinha", "municipio": "Paulista"},
     {"praia": "Janga (Cond. Roberto Barbosa)", "municipio": "Paulista"},
     {"praia": "Janga (Rua Betânia)", "municipio": "Paulista"},
-    # Região Metropolitana - Olinda/Recife
+    # Olinda
     {"praia": "Rio Doce", "municipio": "Olinda"},
     {"praia": "Bairro Novo", "municipio": "Olinda"},
     {"praia": "Carmo", "municipio": "Olinda"},
     {"praia": "Milagres", "municipio": "Olinda"},
+    # Recife
     {"praia": "Pina", "municipio": "Recife"},
     {"praia": "Boa Viagem (Posto 8)", "municipio": "Recife"},
     {"praia": "Boa Viagem (Posto 15)", "municipio": "Recife"},
-    # Litoral Sul - Jaboatão
+    # Jaboatão dos Guararapes
     {"praia": "Piedade", "municipio": "Jaboatão dos Guararapes"},
     {"praia": "Candeias (Conj. Candeias II)", "municipio": "Jaboatão dos Guararapes"},
     {"praia": "Candeias (Rest. Candelária)", "municipio": "Jaboatão dos Guararapes"},
     {"praia": "Barra de Jangadas", "municipio": "Jaboatão dos Guararapes"},
-    # Igarassu
-    {"praia": "Praia do Capitão (Mangue Seco)", "municipio": "Igarassu"},
-    # Litoral Sul - Cabo / Ipojuca
+    # Cabo de Santo Agostinho
+    {"praia": "Suape", "municipio": "Cabo de Santo Agostinho"},
     {"praia": "Enseada dos Corais", "municipio": "Cabo de Santo Agostinho"},
     {"praia": "Gaibu", "municipio": "Cabo de Santo Agostinho"},
-    {"praia": "Suape", "municipio": "Cabo de Santo Agostinho"},
+    # Ipojuca
     {"praia": "Porto de Galinhas", "municipio": "Ipojuca"},
     {"praia": "Ponta de Serrambi", "municipio": "Ipojuca"},
-    # Litoral Sul - Tamandaré
+    # Tamandaré
     {"praia": "Praia dos Carneiros", "municipio": "Tamandaré"},
     {"praia": "Tamandaré (Hotel Marinas)", "municipio": "Tamandaré"},
     {"praia": "Tamandaré (Rua Nilo Gouveia)", "municipio": "Tamandaré"},
+    # São José da Coroa Grande
     {"praia": "São José da Coroa Grande", "municipio": "São José da Coroa Grande"},
 ]
 
