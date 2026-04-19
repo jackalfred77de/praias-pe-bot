@@ -224,17 +224,17 @@ def atualizar_dados():
 
 def dados_exemplo():
     """Retorna dados de exemplo com todas as praias conhecidas."""
-    # Boletim 15/2026 — Período 10/04 a 16/04, coleta 06/04
-    # 15 próprias / 12 impróprias
+    # Boletim 16/2026 — Período 17/04 a 23/04, coleta 13/04
+    # 14 próprias / 13 impróprias
     status_map = {
         "Jaguaribe": "IMPRÓPRIA",
         "Pilar": "PRÓPRIA",
         "Forte Orange": "PRÓPRIA",
-        "Maria Farinha": "IMPRÓPRIA",            # ← piorou (era PRÓPRIA no bol. 14)
+        "Maria Farinha": "IMPRÓPRIA",
         "Janga (Cond. Roberto Barbosa)": "IMPRÓPRIA",
-        "Janga (Rua Betânia)": "IMPRÓPRIA",      # ← piorou (era PRÓPRIA no bol. 14)
+        "Janga (Rua Betânia)": "IMPRÓPRIA",
         "Rio Doce": "IMPRÓPRIA",
-        "Bairro Novo": "IMPRÓPRIA",              # ← piorou (era PRÓPRIA no bol. 14)
+        "Bairro Novo": "IMPRÓPRIA",
         "Carmo": "IMPRÓPRIA",
         "Milagres": "IMPRÓPRIA",
         "Pina": "IMPRÓPRIA",
@@ -244,8 +244,8 @@ def dados_exemplo():
         "Candeias (Conj. Candeias II)": "PRÓPRIA",
         "Candeias (Rest. Candelária)": "IMPRÓPRIA",
         "Barra de Jangadas": "IMPRÓPRIA",
-        "Enseada dos Corais": "PRÓPRIA",
-        "Gaibu": "IMPRÓPRIA",
+        "Enseada dos Corais": "IMPRÓPRIA",          # ← piorou (era PRÓPRIA no bol. 15)
+        "Gaibu": "PRÓPRIA",                          # ← melhorou (era IMPRÓPRIA no bol. 15)
         "Suape": "IMPRÓPRIA",
         "Porto de Galinhas": "PRÓPRIA",
         "Ponta de Serrambi": "PRÓPRIA",
@@ -265,10 +265,10 @@ def dados_exemplo():
         })
 
     return {
-        "atualizado_em": "2026-04-10T00:00:00",
-        "boletim_nr": "15/2026",
-        "alteracoes_melhora": [],
-        "alteracoes_piora": ["Maria Farinha", "Janga (Rua Betânia)", "Bairro Novo"],
+        "atualizado_em": "2026-04-17T00:00:00",
+        "boletim_nr": "16/2026",
+        "alteracoes_melhora": ["Gaibu"],
+        "alteracoes_piora": ["Enseada dos Corais"],
         "total_proprias": sum(1 for p in praias if p["status"] == "PRÓPRIA"),
         "total_improprias": sum(1 for p in praias if p["status"] == "IMPRÓPRIA"),
         "praias": praias,
