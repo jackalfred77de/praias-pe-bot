@@ -229,14 +229,15 @@ def atualizar_dados():
 
 def dados_exemplo():
     """Retorna dados de exemplo com todas as praias conhecidas."""
-    # Boletim 16/2026 — Período 17/04 a 23/04, coleta 13/04
-    # 14 próprias / 13 impróprias
+    # Boletim 17/2026 — Publicado 17/04, vigência 17/04 a 23/04, coleta 13/04
+    # 15 próprias / 12 impróprias
     status_map = {
         "Jaguaribe": "IMPRÓPRIA",
         "Pilar": "PRÓPRIA",
         "Forte Orange": "PRÓPRIA",
+        "Praia do Capitão (Mangue Seco)": "PRÓPRIA",
         "Maria Farinha": "IMPRÓPRIA",
-        "Janga (Cond. Roberto Barbosa)": "IMPRÓPRIA",
+        "Janga (Cond. Roberto Barbosa)": "PRÓPRIA",     # ← melhorou (era IMPRÓPRIA no bol. 16)
         "Janga (Rua Betânia)": "IMPRÓPRIA",
         "Rio Doce": "IMPRÓPRIA",
         "Bairro Novo": "IMPRÓPRIA",
@@ -249,15 +250,14 @@ def dados_exemplo():
         "Candeias (Conj. Candeias II)": "PRÓPRIA",
         "Candeias (Rest. Candelária)": "IMPRÓPRIA",
         "Barra de Jangadas": "IMPRÓPRIA",
-        "Enseada dos Corais": "IMPRÓPRIA",          # ← piorou (era PRÓPRIA no bol. 15)
-        "Gaibu": "PRÓPRIA",                          # ← melhorou (era IMPRÓPRIA no bol. 15)
         "Suape": "IMPRÓPRIA",
+        "Enseada dos Corais": "IMPRÓPRIA",
+        "Gaibu": "PRÓPRIA",
         "Porto de Galinhas": "PRÓPRIA",
         "Ponta de Serrambi": "PRÓPRIA",
         "Praia dos Carneiros": "PRÓPRIA",
         "Tamandaré (Hotel Marinas)": "PRÓPRIA",
         "Tamandaré (Rua Nilo Gouveia)": "PRÓPRIA",
-        "Praia do Capitão (Mangue Seco)": "PRÓPRIA",
         "São José da Coroa Grande": "PRÓPRIA",
     }
 
@@ -270,10 +270,12 @@ def dados_exemplo():
         })
 
     return {
-        "atualizado_em": "2026-04-17T00:00:00",
-        "boletim_nr": "16/2026",
-        "alteracoes_melhora": ["Gaibu"],
-        "alteracoes_piora": ["Enseada dos Corais"],
+        "atualizado_em": "2026-04-24T00:00:00",
+        "boletim_nr": "17/2026",
+        "periodo": "17/04 a 23/04",
+        "coleta": "13/04",
+        "alteracoes_melhora": ["Janga (Cond. Roberto Barbosa)"],
+        "alteracoes_piora": [],
         "total_proprias": sum(1 for p in praias if p["status"] == "PRÓPRIA"),
         "total_improprias": sum(1 for p in praias if p["status"] == "IMPRÓPRIA"),
         "praias": praias,
@@ -295,6 +297,101 @@ def carregar_dados():
             log.info(f"⚠️ Dados em disco ({data_disco}) mais antigos que exemplo ({data_exemplo}) — usando exemplo")
     DADOS_FILE.write_text(json.dumps(exemplo, ensure_ascii=False, indent=2), encoding="utf-8")
     return exemplo
+
+
+# ─── Persistência de assinantes ───────────────────────────────────────────────
+
+ASSINANTES_FILE = Path.home() / "assinantes.json"
+ADMIN_CHAT_ID = int(os.environ.get("ADMIN_CHAT_ID", "0"))  # opcional, p/ avisos
+
+def carregar_assinantes():
+    if ASSINANTES_FILE.exists():
+        try:
+            return set(json.loads(ASSINANTES_FILE.read_text(encoding="utf-8")))
+        except Exception:
+            return set()
+    return set()
+
+def salvar_assinantes(assinantes):
+    ASSINANTES_FILE.write_text(
+        json.dumps(sorted(assinantes), ensure_ascii=False),
+        encoding="utf-8"
+    )
+
+def adicionar_assinante(chat_id):
+    assinantes = carregar_assinantes()
+    if chat_id not in assinantes:
+        assinantes.add(chat_id)
+        salvar_assinantes(assinantes)
+        log.info(f"➕ Novo assinante: {chat_id} (total: {len(assinantes)})")
+
+
+# ─── Detecção de boletim novo + broadcast ────────────────────────────────────
+
+def assinatura_boletim(dados):
+    """Cria assinatura única do boletim para detectar mudanças."""
+    nr = dados.get("boletim_nr", "")
+    # Concatena (praia, status) ordenado para detectar qualquer mudança
+    sig = ";".join(
+        f"{p.get('praia','')}={p.get('status','')}"
+        for p in sorted(dados.get("praias", []), key=lambda x: x.get("praia", ""))
+    )
+    return f"{nr}|{sig}"
+
+async def broadcast_boletim(application, dados_anterior=None):
+    """Envia boletim atualizado para todos os assinantes."""
+    assinantes = carregar_assinantes()
+    if not assinantes:
+        log.info("📭 Nenhum assinante para notificar")
+        return
+
+    texto = "🆕 BOLETIM ATUALIZADO!\n\n" + formatar_boletim()
+    enviados = 0
+    falhas = 0
+    bloqueados = []
+
+    for chat_id in assinantes:
+        try:
+            await application.bot.send_message(
+                chat_id=chat_id,
+                text=texto,
+                parse_mode="Markdown"
+            )
+            enviados += 1
+        except Exception as e:
+            falhas += 1
+            erro = str(e).lower()
+            # Remove usuários que bloquearam o bot
+            if "blocked" in erro or "chat not found" in erro or "deactivated" in erro:
+                bloqueados.append(chat_id)
+            log.warning(f"Falha enviando para {chat_id}: {e}")
+
+    # Limpa bloqueados
+    if bloqueados:
+        assinantes_atuais = carregar_assinantes()
+        for cid in bloqueados:
+            assinantes_atuais.discard(cid)
+        salvar_assinantes(assinantes_atuais)
+        log.info(f"🧹 Removidos {len(bloqueados)} chats inativos")
+
+    log.info(f"📢 Broadcast: {enviados} enviados, {falhas} falhas")
+
+async def verificar_e_notificar(application):
+    """Compara boletim atual com último broadcast e notifica se mudou."""
+    SIG_FILE = Path.home() / "ultima_assinatura.txt"
+    dados = carregar_dados()
+    sig_atual = assinatura_boletim(dados)
+
+    sig_anterior = ""
+    if SIG_FILE.exists():
+        sig_anterior = SIG_FILE.read_text(encoding="utf-8").strip()
+
+    if sig_atual != sig_anterior:
+        log.info(f"🆕 Boletim mudou! Enviando broadcast...")
+        await broadcast_boletim(application)
+        SIG_FILE.write_text(sig_atual, encoding="utf-8")
+    else:
+        log.info("⏭️ Boletim sem mudanças, sem broadcast")
 
 
 # ─── Formatação ───────────────────────────────────────────────────────────────
@@ -344,11 +441,43 @@ def formatar_boletim():
 # ─── Bot Telegram ─────────────────────────────────────────────────────────────
 
 async def responder(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    chat_id = update.message.chat_id
+    texto = (update.message.text or "").strip()
+
+    # Registra como assinante automaticamente em qualquer interação
+    adicionar_assinante(chat_id)
+
+    # Comandos admin (só funcionam para ADMIN_CHAT_ID)
+    if chat_id == ADMIN_CHAT_ID and texto.startswith("/"):
+        if texto == "/forcar_broadcast":
+            await update.message.reply_text("🔔 Forçando broadcast...")
+            await broadcast_boletim(context.application)
+            await update.message.reply_text("✅ Broadcast concluído.")
+            return
+        if texto == "/forcar_atualizacao":
+            await update.message.reply_text("🔄 Tentando buscar PDF da CPRH...")
+            atualizar_dados()
+            await verificar_e_notificar(context.application)
+            await update.message.reply_text("✅ Concluído.")
+            return
+        if texto == "/stats":
+            n = len(carregar_assinantes())
+            d = carregar_dados()
+            await update.message.reply_text(
+                f"👥 Assinantes: {n}\n"
+                f"📅 Boletim: {d.get('boletim_nr','?')}\n"
+                f"✅ Próprias: {d.get('total_proprias','?')}\n"
+                f"❌ Impróprias: {d.get('total_improprias','?')}\n"
+                f"📊 Fonte: {d.get('fonte','?')}"
+            )
+            return
+
     await update.message.reply_text(formatar_boletim())
 
 
 def main():
     import urllib3
+    import asyncio
     urllib3.disable_warnings()
 
     # Inicia HTTP server para Azure App Service F1 health checks
@@ -373,16 +502,49 @@ def main():
     # Garante que temos dados (reais ou exemplo)
     carregar_dados()
 
-    # Agenda atualização toda sexta às 14h
-    scheduler = BackgroundScheduler()
-    scheduler.add_job(atualizar_dados, "cron", day_of_week="fri", hour=14, minute=0)
-    scheduler.add_job(self_ping, "interval", minutes=14)
-    log.info("Self-ping a cada 14 min ativado")
-    scheduler.start()
-    log.info("⏰ Agendamento: toda sexta às 14h")
+    # Container para guardar referência ao loop (preenchido em post_init)
+    app_loop = {"loop": None}
 
-    app = Application.builder().token(TELEGRAM_TOKEN).build()
+    async def post_init(application):
+        """Captura o event loop após inicialização e roda 1ª verificação."""
+        app_loop["loop"] = asyncio.get_running_loop()
+        # Verifica se exemplo embutido (Boletim novo no código) deve gerar broadcast
+        await verificar_e_notificar(application)
+
+    app = (
+        Application.builder()
+        .token(TELEGRAM_TOKEN)
+        .post_init(post_init)
+        .build()
+    )
     app.add_handler(MessageHandler(filters.ALL, responder))
+
+    # Wrapper síncrono para chamar verificar_e_notificar do scheduler
+    def job_atualizar_e_notificar():
+        try:
+            atualizar_dados()
+            loop = app_loop.get("loop")
+            if loop is None:
+                log.warning("⚠️ Loop ainda não disponível, pulando broadcast")
+                return
+            # Agenda a corrotina no event loop do bot
+            asyncio.run_coroutine_threadsafe(
+                verificar_e_notificar(app),
+                loop
+            )
+        except Exception as e:
+            log.error(f"Erro no job automático: {e}")
+
+    # Agenda atualizações:
+    # - Diário às 14h e 18h (America/Recife): tenta baixar PDF da CPRH
+    # - Self-ping a cada 14 min p/ manter Azure F1 acordado
+    scheduler = BackgroundScheduler(timezone="America/Recife")
+    scheduler.add_job(job_atualizar_e_notificar, "cron", hour=14, minute=0)
+    scheduler.add_job(job_atualizar_e_notificar, "cron", hour=18, minute=0)
+    scheduler.add_job(self_ping, "interval", minutes=14)
+    scheduler.start()
+    log.info("⏰ Agendamento: diário 14h e 18h (America/Recife) + self-ping 14min")
+
     log.info("🤖 Bot iniciado!")
     app.run_polling(drop_pending_updates=True)
 
