@@ -20,10 +20,18 @@ except ImportError:
     PDF_SUPPORT = False
 
 TELEGRAM_TOKEN = os.environ.get("TELEGRAM_TOKEN", "8537829811:AAEMKGX_w3kRLPwEQFQ-QnUWO3BG9YmJECk")
-DADOS_FILE = Path.home() / "dados_praias.json"
+
+# Diretório persistente: /home é volume montado e compartilhado entre Kudu e app container
+DADOS_DIR = Path("/home/data")
+DADOS_DIR.mkdir(parents=True, exist_ok=True)
+DADOS_FILE = DADOS_DIR / "dados_praias.json"
 
 logging.basicConfig(level=logging.INFO)
 log = logging.getLogger("bot_praias")
+
+# Diagnostic: log onde os arquivos serão escritos
+log.info(f"📁 DADOS_DIR = {DADOS_DIR} (exists={DADOS_DIR.exists()})")
+log.info(f"📄 DADOS_FILE = {DADOS_FILE}")
 
 # Todas as 27 praias monitoradas pela CPRH com seus municípios
 PRAIAS_CONHECIDAS = [
@@ -118,7 +126,7 @@ def scrape_pdf(pdf_url):
     try:
         log.info(f"Baixando PDF: {pdf_url}")
         resp = requests.get(pdf_url, timeout=30, verify=False)
-        pdf_path = Path.home() / "temp_balneabilidade.pdf"
+        pdf_path = DADOS_DIR / "temp_balneabilidade.pdf"
         pdf_path.write_bytes(resp.content)
 
         status_atual = None
@@ -229,15 +237,18 @@ def atualizar_dados():
 
 def dados_exemplo():
     """Retorna dados de exemplo com todas as praias conhecidas."""
-    # Boletim 17/2026 — Publicado 17/04, vigência 17/04 a 23/04, coleta 13/04
-    # 15 próprias / 12 impróprias
+    # Boletim 18/2026 — Publicado 30/04/2026, vigência 30/04 a 07/05
+    # 13 próprias / 14 impróprias
+    # Mudanças vs Bol. 17:
+    #   PIORARAM: Pilar, Janga (Cond. Roberto Barbosa), Candeias (Conj. Candeias II)
+    #   MELHORARAM: Maria Farinha
     status_map = {
         "Jaguaribe": "IMPRÓPRIA",
-        "Pilar": "PRÓPRIA",
+        "Pilar": "IMPRÓPRIA",                            # ← piorou
         "Forte Orange": "PRÓPRIA",
         "Praia do Capitão (Mangue Seco)": "PRÓPRIA",
-        "Maria Farinha": "IMPRÓPRIA",
-        "Janga (Cond. Roberto Barbosa)": "PRÓPRIA",     # ← melhorou (era IMPRÓPRIA no bol. 16)
+        "Maria Farinha": "PRÓPRIA",                      # ← melhorou
+        "Janga (Cond. Roberto Barbosa)": "IMPRÓPRIA",    # ← piorou
         "Janga (Rua Betânia)": "IMPRÓPRIA",
         "Rio Doce": "IMPRÓPRIA",
         "Bairro Novo": "IMPRÓPRIA",
@@ -247,8 +258,8 @@ def dados_exemplo():
         "Boa Viagem (Posto 8)": "PRÓPRIA",
         "Boa Viagem (Posto 15)": "PRÓPRIA",
         "Piedade": "PRÓPRIA",
-        "Candeias (Conj. Candeias II)": "PRÓPRIA",
-        "Candeias (Rest. Candelária)": "IMPRÓPRIA",
+        "Candeias (Conj. Candeias II)": "IMPRÓPRIA",     # ← piorou (5422)
+        "Candeias (Rest. Candelária)": "IMPRÓPRIA",      # (6476)
         "Barra de Jangadas": "IMPRÓPRIA",
         "Suape": "IMPRÓPRIA",
         "Enseada dos Corais": "IMPRÓPRIA",
@@ -270,12 +281,12 @@ def dados_exemplo():
         })
 
     return {
-        "atualizado_em": "2026-04-24T00:00:00",
-        "boletim_nr": "17/2026",
-        "periodo": "17/04 a 23/04",
-        "coleta": "13/04",
-        "alteracoes_melhora": ["Janga (Cond. Roberto Barbosa)"],
-        "alteracoes_piora": [],
+        "atualizado_em": "2026-05-06T12:00:00",
+        "boletim_nr": "18/2026",
+        "periodo": "30/04 a 07/05",
+        "publicado_em": "30/04/2026",
+        "alteracoes_melhora": ["Maria Farinha"],
+        "alteracoes_piora": ["Pilar", "Janga (Cond. Roberto Barbosa)", "Candeias (Conj. Candeias II)"],
         "total_proprias": sum(1 for p in praias if p["status"] == "PRÓPRIA"),
         "total_improprias": sum(1 for p in praias if p["status"] == "IMPRÓPRIA"),
         "praias": praias,
@@ -301,7 +312,7 @@ def carregar_dados():
 
 # ─── Persistência de assinantes ───────────────────────────────────────────────
 
-ASSINANTES_FILE = Path.home() / "assinantes.json"
+ASSINANTES_FILE = DADOS_DIR / "assinantes.json"
 ADMIN_CHAT_ID = int(os.environ.get("ADMIN_CHAT_ID", "0"))  # opcional, p/ avisos
 
 def carregar_assinantes():
@@ -378,7 +389,7 @@ async def broadcast_boletim(application, dados_anterior=None):
 
 async def verificar_e_notificar(application):
     """Compara boletim atual com último broadcast e notifica se mudou."""
-    SIG_FILE = Path.home() / "ultima_assinatura.txt"
+    SIG_FILE = DADOS_DIR / "ultima_assinatura.txt"
     dados = carregar_dados()
     sig_atual = assinatura_boletim(dados)
 
