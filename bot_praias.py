@@ -409,12 +409,26 @@ async def verificar_e_notificar(application):
 
 def formatar_boletim():
     dados = carregar_dados()
-    data = datetime.fromisoformat(dados["atualizado_em"]).strftime("%d/%m/%Y")
     eh_exemplo = dados.get("fonte") == "exemplo"
+
+    # Prioridade: publicado_em (data real do boletim CPRH) > atualizado_em (fallback)
+    publicado_em = dados.get("publicado_em")
+    if publicado_em:
+        data = publicado_em  # já formatado dd/mm/yyyy
+    else:
+        data = datetime.fromisoformat(dados["atualizado_em"]).strftime("%d/%m/%Y")
+
+    boletim_nr = dados.get("boletim_nr", "")
+    periodo = dados.get("periodo", "")
+
+    cabecalho = f"📅 Boletim {boletim_nr}" if boletim_nr else "📅 Boletim"
+    cabecalho += f" — publicado em {data}"
+    if periodo:
+        cabecalho += f"\n🗓️ Vigência: {periodo}"
 
     linhas = [
         "🏖️ BALNEABILIDADE — PERNAMBUCO",
-        f"📅 Boletim de: {data}" + (f" _(ref. {dados['boletim_nr']})_" if eh_exemplo and dados.get("boletim_nr") else (" _(referência)_" if eh_exemplo else "")),
+        cabecalho,
         f"✅ Próprias: {dados['total_proprias']}  |  ❌ Impróprias: {dados['total_improprias']}",
         ""
     ]
