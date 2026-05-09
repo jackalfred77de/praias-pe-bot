@@ -143,40 +143,83 @@ def scrape_pdf(pdf_url):
 
         with pdfplumber.open(pdf_path) as pdf:
             log.info(f"   PDF aberto: {len(pdf.pages)} páginas")
-            # Capturar todo o texto para diagnóstico se necessário
             todo_texto = ""
             for page in pdf.pages:
                 texto = page.extract_text() or ""
                 todo_texto += texto + "\n"
-                for linha in texto.splitlines():
-                    linha = linha.strip()
-                    if not linha:
-                        continue
 
-                    # Detecta linha de status
-                    if re.match(r"^(PR[OÓ]PRIA|IMPR[OÓ]PRIA)$", linha, re.IGNORECASE):
-                        status_atual = parse_status(linha)
-                        continue
+            # ── PARSER NOVO (formato 2024+): tudo numa linha por praia ──
+            # Padrão típico: "ITA-10 Praia de Pilar, em frente à Igreja do Pilar. Itamaracá Imprópria"
+            # Codigo de coleta: 3 letras + hífen + 2 dígitos
+            padrao_linha = re.compile(
+                r"^([A-Z]{3}-\d{2,3})\s+(.+?)\s+(Pr[óo]pria|Impr[óo]pria)\s*$",
+                re.IGNORECASE
+            )
 
-                    # Detecta município (linha curta sem números)
-                    if (len(linha) < 35
-                            and not any(c.isdigit() for c in linha)
-                            and "praia" not in linha.lower()
-                            and "em frente" not in linha.lower()
-                            and linha not in ["PRÓPRIA", "IMPRÓPRIA"]):
-                        municipio_atual = linha
-                        continue
+            # Lista de municípios conhecidos para separar do nome da praia
+            municipios_conhecidos = [
+                "Itamaracá", "Igarassu", "Paulista", "Olinda", "Recife",
+                "Jaboatão dos Guararapes", "Cabo de Sto Agostinho",
+                "Cabo de Santo Agostinho", "Ipojuca", "Tamandaré",
+                "São José da C. Grande", "São José da Coroa Grande"
+            ]
 
-                    # Linha de praia
-                    if ("praia" in linha.lower() or "em frente" in linha.lower()) and status_atual:
-                        # Extrai nome limpo da praia
-                        nome = re.sub(r"(?i)^praia\s+(de|da|do|dos|das)\s+", "", linha)
-                        nome = nome.split(",")[0].split("–")[0].strip()
-                        praias.append({
-                            "praia": nome,
-                            "status": status_atual,
-                            "municipio": municipio_atual
-                        })
+            for linha in todo_texto.splitlines():
+                linha = linha.strip()
+                if not linha:
+                    continue
+
+                m = padrao_linha.match(linha)
+                if not m:
+                    continue
+
+                codigo = m.group(1).upper()
+                meio = m.group(2).strip()
+                status = parse_status(m.group(3))
+
+                # Separa município do nome da praia (município sempre no fim do "meio")
+                municipio = ""
+                nome_praia = meio
+                for mun in municipios_conhecidos:
+                    if meio.endswith(" " + mun) or meio.endswith("." + mun):
+                        municipio = mun
+                        nome_praia = meio[: len(meio) - len(mun)].rstrip(" .")
+                        break
+
+                # Extrai nome limpo da praia (remove "Praia de/do/da/dos")
+                nome_limpo = re.sub(r"(?i)^praia\s+(de|da|do|dos|das)\s+", "", nome_praia)
+                # Tira a parte após a vírgula (descrição da localização)
+                nome_limpo = nome_limpo.split(",")[0].split("–")[0].strip()
+
+                praias.append({
+                    "codigo": codigo,
+                    "praia": nome_limpo,
+                    "praia_completa": nome_praia,
+                    "status": status,
+                    "municipio": municipio
+                })
+
+            # Tenta extrair metadados (boletim_nr, periodo, coleta) do cabeçalho
+            metadados = {}
+            m_nr = re.search(r"INFORMATIVO\s+N[ºo°]?:?\s*(\d{1,2}/\d{4})", todo_texto, re.IGNORECASE)
+            if m_nr:
+                metadados["boletim_nr"] = m_nr.group(1)
+            m_data = re.search(r"DATA:\s*(\d{2}/\d{2}/\d{4})", todo_texto, re.IGNORECASE)
+            if m_data:
+                metadados["publicado_em"] = m_data.group(1)
+            m_per = re.search(r"PER[ÍI]ODO:\s*(\d{2}/\d{2}/\d{4})\s+a\s+(\d{2}/\d{2}/\d{4})", todo_texto, re.IGNORECASE)
+            if m_per:
+                # Compacta para "08/05 a 14/05"
+                d1 = m_per.group(1)[:5]
+                d2 = m_per.group(2)[:5]
+                metadados["periodo"] = f"{d1} a {d2}"
+            m_col = re.search(r"DATA\s+DA\s+COLETA:\s*(\d{2}/\d{2}/\d{4})", todo_texto, re.IGNORECASE)
+            if m_col:
+                metadados["coleta"] = m_col.group(1)
+
+            # Anexa metadados na primeira praia para o caller poder acessar
+            if praias and metadados:
+                praias[0]["_metadados"] = metadados
 
             # Se não extraiu nada, salva amostra do texto para diagnóstico
             if not praias:
@@ -334,16 +377,23 @@ def atualizar_dados():
         log.warning("PDF não encontrado no site da CPRH")
 
     if praias:
+        # Extrai metadados que o scraper anexou na primeira praia
+        metadados = praias[0].pop("_metadados", {}) if praias else {}
+
         dados = {
             "atualizado_em": datetime.now().isoformat(),
+            "boletim_nr": metadados.get("boletim_nr", ""),
+            "publicado_em": metadados.get("publicado_em", ""),
+            "periodo": metadados.get("periodo", ""),
+            "coleta": metadados.get("coleta", ""),
             "total_proprias": sum(1 for p in praias if p["status"] == "PRÓPRIA"),
             "total_improprias": sum(1 for p in praias if p["status"] == "IMPRÓPRIA"),
             "praias": praias,
             "fonte": "cprh"
         }
         DADOS_FILE.write_text(json.dumps(dados, ensure_ascii=False, indent=2), encoding="utf-8")
-        log.info(f"✅ {len(praias)} praias salvas da CPRH")
-        registrar_diagnostico(f"SUCESSO: {len(praias)} praias salvas")
+        log.info(f"✅ {len(praias)} praias salvas da CPRH (Boletim {dados['boletim_nr']})")
+        registrar_diagnostico(f"SUCESSO: Boletim {dados['boletim_nr']} - {len(praias)} praias salvas ({dados['total_proprias']} próprias / {dados['total_improprias']} impróprias)")
     else:
         log.warning("⚠️ Scraper não encontrou dados — mantendo dados anteriores")
         registrar_diagnostico("FALHA: scraper não retornou nenhuma praia")
