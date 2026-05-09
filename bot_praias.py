@@ -249,9 +249,34 @@ def encontrar_pdf_cprh():
                         pdf_links.append(full)
 
                 log.info(f"   PDFs encontrados: {len(pdf_links)}")
+                # Log de todos os PDFs para diagnóstico
                 if pdf_links:
-                    # Pega o último (geralmente o mais recente)
-                    return pdf_links[-1]
+                    registrar_diagnostico(f"Total PDFs em {url}: {len(pdf_links)}")
+                    for p in pdf_links[:10]:
+                        registrar_diagnostico(f"  PDF: {p}")
+
+                if pdf_links:
+                    # Heurística: tenta achar o boletim mais recente pelo nome do arquivo
+                    # Padrões comuns: "INFORMATIVO_..._19_2026.pdf", "boletim-19-2026.pdf", etc.
+                    import re as _re
+                    ano_atual = datetime.now().year
+                    # Filtra por ano atual primeiro
+                    ano_pdfs = [p for p in pdf_links if str(ano_atual) in p]
+                    if ano_pdfs:
+                        # Extrai número do boletim e ordena decrescente
+                        def num_boletim(url):
+                            m = _re.search(r"(\d{1,2})[_\-](\d{4})", url)
+                            if m:
+                                return int(m.group(1))
+                            return 0
+                        ano_pdfs.sort(key=num_boletim, reverse=True)
+                        escolhido = ano_pdfs[0]
+                        registrar_diagnostico(f"ESCOLHIDO (ano {ano_atual}): {escolhido}")
+                        return escolhido
+                    # Fallback: pega o último link (assumindo ordem cronológica na página)
+                    escolhido = pdf_links[-1]
+                    registrar_diagnostico(f"ESCOLHIDO (último): {escolhido}")
+                    return escolhido
 
             except requests.exceptions.SSLError as e:
                 msg = f"SSLError {url}: {str(e)[:150]}"
