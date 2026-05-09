@@ -216,9 +216,13 @@ def registrar_diagnostico(mensagem):
 
 def encontrar_pdf_cprh():
     """Busca o link do PDF mais recente no site da CPRH."""
+    ano_atual = datetime.now().year
     urls_para_tentar = [
-        "https://www2.cprh.pe.gov.br/monitoramento-ambiental/balneabilidade/informativo-semanal/",
+        # Página específica do ano corrente (formato CPRH 2024+)
+        f"https://www2.cprh.pe.gov.br/monitoramento-ambiental/balneabilidade/informativos-semanais-{ano_atual}/",
+        # Fallbacks
         "https://www2.cprh.pe.gov.br/monitoramento-ambiental/balneabilidade/",
+        "https://www2.cprh.pe.gov.br/monitoramento-ambiental/balneabilidade/informativo-semanal/",
     ]
     user_agents = [
         "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
@@ -249,33 +253,34 @@ def encontrar_pdf_cprh():
                         pdf_links.append(full)
 
                 log.info(f"   PDFs encontrados: {len(pdf_links)}")
-                # Log de todos os PDFs para diagnóstico
-                if pdf_links:
-                    registrar_diagnostico(f"Total PDFs em {url}: {len(pdf_links)}")
-                    for p in pdf_links[:10]:
-                        registrar_diagnostico(f"  PDF: {p}")
 
                 if pdf_links:
-                    # Heurística: tenta achar o boletim mais recente pelo nome do arquivo
-                    # Padrões comuns: "INFORMATIVO_..._19_2026.pdf", "boletim-19-2026.pdf", etc.
-                    import re as _re
-                    ano_atual = datetime.now().year
-                    # Filtra por ano atual primeiro
-                    ano_pdfs = [p for p in pdf_links if str(ano_atual) in p]
-                    if ano_pdfs:
-                        # Extrai número do boletim e ordena decrescente
-                        def num_boletim(url):
-                            m = _re.search(r"(\d{1,2})[_\-](\d{4})", url)
-                            if m:
-                                return int(m.group(1))
-                            return 0
-                        ano_pdfs.sort(key=num_boletim, reverse=True)
-                        escolhido = ano_pdfs[0]
-                        registrar_diagnostico(f"ESCOLHIDO (ano {ano_atual}): {escolhido}")
-                        return escolhido
-                    # Fallback: pega o último link (assumindo ordem cronológica na página)
-                    escolhido = pdf_links[-1]
-                    registrar_diagnostico(f"ESCOLHIDO (último): {escolhido}")
+                    registrar_diagnostico(f"Total PDFs em {url}: {len(pdf_links)}")
+                    for p in pdf_links[:5]:
+                        registrar_diagnostico(f"  PDF: {p}")
+
+                # Heurística: filtra por ano atual e pega o boletim de número mais alto
+                import re as _re
+                ano_pdfs = [p for p in pdf_links if str(ano_atual) in p]
+
+                if ano_pdfs:
+                    # Padrão CPRH 2024+: "informativo-balneabilidade-19_2026-enterolert.pdf"
+                    # Padrão antigo:     "INFORMATIVO_DA_BANEABILIDADE_DAS_PRAIAS_DE_PERNAMBUCO_19_2026.pdf"
+                    def num_boletim(url):
+                        # Procura padrão "NN_AAAA" onde AAAA é o ano atual
+                        m = _re.search(rf"[-_](\d{{1,2}})_{ano_atual}", url)
+                        if m:
+                            return int(m.group(1))
+                        return 0
+                    ano_pdfs.sort(key=num_boletim, reverse=True)
+                    escolhido = ano_pdfs[0]
+                    registrar_diagnostico(f"ESCOLHIDO (ano {ano_atual}, bol={num_boletim(escolhido)}): {escolhido}")
+                    return escolhido
+
+                if pdf_links:
+                    # Última opção: primeiro PDF da página (geralmente o mais recente em listagens)
+                    escolhido = pdf_links[0]
+                    registrar_diagnostico(f"ESCOLHIDO (primeiro): {escolhido}")
                     return escolhido
 
             except requests.exceptions.SSLError as e:
