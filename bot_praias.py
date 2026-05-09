@@ -124,8 +124,17 @@ def scrape_pdf(pdf_url):
     """Extrai dados de um PDF da CPRH."""
     praias = []
     try:
-        log.info(f"Baixando PDF: {pdf_url}")
+        log.info(f"📥 Baixando PDF: {pdf_url}")
         resp = requests.get(pdf_url, timeout=30, verify=False)
+        log.info(f"   PDF download: HTTP {resp.status_code}, {len(resp.content)} bytes")
+
+        if resp.status_code != 200:
+            registrar_diagnostico(f"PDF download falhou: HTTP {resp.status_code} para {pdf_url}")
+            return []
+        if len(resp.content) < 1000:
+            registrar_diagnostico(f"PDF muito pequeno ({len(resp.content)} bytes), provavelmente erro: {resp.text[:200]}")
+            return []
+
         pdf_path = DADOS_DIR / "temp_balneabilidade.pdf"
         pdf_path.write_bytes(resp.content)
 
@@ -133,6 +142,7 @@ def scrape_pdf(pdf_url):
         municipio_atual = ""
 
         with pdfplumber.open(pdf_path) as pdf:
+            log.info(f"   PDF aberto: {len(pdf.pages)} páginas")
             for page in pdf.pages:
                 texto = page.extract_text() or ""
                 for linha in texto.splitlines():
@@ -166,55 +176,121 @@ def scrape_pdf(pdf_url):
                         })
 
         pdf_path.unlink(missing_ok=True)
-        log.info(f"PDF extraído: {len(praias)} praias")
+        log.info(f"📊 PDF extraído: {len(praias)} praias")
 
+    except requests.exceptions.SSLError as e:
+        msg = f"SSLError no PDF (geo-block ou cert): {str(e)[:200]}"
+        log.error(msg)
+        registrar_diagnostico(msg)
+    except requests.exceptions.Timeout as e:
+        msg = f"Timeout no PDF: {e}"
+        log.error(msg)
+        registrar_diagnostico(msg)
+    except requests.exceptions.ConnectionError as e:
+        msg = f"ConnectionError no PDF: {str(e)[:200]}"
+        log.error(msg)
+        registrar_diagnostico(msg)
     except Exception as e:
-        log.error(f"Erro ao processar PDF: {e}")
+        msg = f"Erro ao processar PDF ({type(e).__name__}): {str(e)[:200]}"
+        log.error(msg)
+        registrar_diagnostico(msg)
 
     return praias
 
 
+def registrar_diagnostico(mensagem):
+    """Salva diagnóstico em arquivo persistente para inspeção via Kudu."""
+    try:
+        from datetime import datetime as _dt
+        diag_file = DADOS_DIR / "ultimo_diagnostico.txt"
+        timestamp = _dt.now().isoformat()
+        with diag_file.open("a", encoding="utf-8") as f:
+            f.write(f"[{timestamp}] {mensagem}\n")
+        # Limita o arquivo a últimas 100 linhas
+        if diag_file.stat().st_size > 50000:
+            linhas = diag_file.read_text(encoding="utf-8").splitlines()
+            diag_file.write_text("\n".join(linhas[-100:]), encoding="utf-8")
+    except Exception as e:
+        log.error(f"Erro ao escrever diagnóstico: {e}")
+
+
 def encontrar_pdf_cprh():
     """Busca o link do PDF mais recente no site da CPRH."""
-    try:
-        headers = {"User-Agent": "Mozilla/5.0"}
-        resp = requests.get(
-            "https://www2.cprh.pe.gov.br/monitoramento-ambiental/balneabilidade/",
-            headers=headers, timeout=15, verify=False
-        )
-        soup = BeautifulSoup(resp.text, "html.parser")
+    urls_para_tentar = [
+        "https://www2.cprh.pe.gov.br/monitoramento-ambiental/balneabilidade/informativo-semanal/",
+        "https://www2.cprh.pe.gov.br/monitoramento-ambiental/balneabilidade/",
+    ]
+    user_agents = [
+        "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36",
+    ]
 
-        for a in soup.find_all("a", href=True):
-            href = a["href"]
-            if "balneabilidade" in href.lower() and href.lower().endswith(".pdf"):
-                if href.startswith("http"):
-                    return href
-                return "https://www2.cprh.pe.gov.br/" + href.lstrip("/")
+    for url in urls_para_tentar:
+        for ua in user_agents:
+            try:
+                log.info(f"🔍 Tentando: {url} (UA={ua[:30]}...)")
+                resp = requests.get(
+                    url,
+                    headers={"User-Agent": ua, "Accept": "text/html,application/xhtml+xml"},
+                    timeout=15, verify=False
+                )
+                log.info(f"   HTTP {resp.status_code}, {len(resp.text)} chars")
 
-        # Tenta também na página de uploads do WordPress
-        for a in soup.find_all("a", href=True):
-            href = a["href"]
-            if "uploads" in href and href.lower().endswith(".pdf"):
-                return href if href.startswith("http") else "https://www2.cprh.pe.gov.br/" + href.lstrip("/")
+                if resp.status_code != 200:
+                    registrar_diagnostico(f"CPRH page {url}: HTTP {resp.status_code}")
+                    continue
 
-    except Exception as e:
-        log.error(f"Erro ao buscar PDF: {e}")
+                soup = BeautifulSoup(resp.text, "html.parser")
+                pdf_links = []
+                for a in soup.find_all("a", href=True):
+                    href = a["href"]
+                    if href.lower().endswith(".pdf") and ("balneabilidade" in href.lower() or "informativo" in href.lower() or "uploads" in href.lower()):
+                        full = href if href.startswith("http") else "https://www2.cprh.pe.gov.br/" + href.lstrip("/")
+                        pdf_links.append(full)
 
+                log.info(f"   PDFs encontrados: {len(pdf_links)}")
+                if pdf_links:
+                    # Pega o último (geralmente o mais recente)
+                    return pdf_links[-1]
+
+            except requests.exceptions.SSLError as e:
+                msg = f"SSLError {url}: {str(e)[:150]}"
+                log.error(msg)
+                registrar_diagnostico(msg)
+            except requests.exceptions.Timeout:
+                msg = f"Timeout {url}"
+                log.error(msg)
+                registrar_diagnostico(msg)
+            except requests.exceptions.ConnectionError as e:
+                msg = f"ConnectionError {url}: {str(e)[:150]}"
+                log.error(msg)
+                registrar_diagnostico(msg)
+            except Exception as e:
+                msg = f"Erro {url} ({type(e).__name__}): {str(e)[:150]}"
+                log.error(msg)
+                registrar_diagnostico(msg)
+
+    registrar_diagnostico("Nenhum PDF encontrado em nenhuma URL/UA tentada")
     return None
 
 
 def atualizar_dados():
     """Busca dados da CPRH e atualiza o arquivo local."""
     log.info("🔄 Atualizando dados da CPRH...")
+    registrar_diagnostico("=== Iniciando atualização ===")
 
     if not PDF_SUPPORT:
-        log.error("pdfplumber não instalado")
+        msg = "pdfplumber não instalado"
+        log.error(msg)
+        registrar_diagnostico(msg)
         return
 
     pdf_url = encontrar_pdf_cprh()
     praias = []
 
     if pdf_url:
+        log.info(f"   Link encontrado: {pdf_url}")
+        registrar_diagnostico(f"PDF localizado: {pdf_url}")
         praias = scrape_pdf(pdf_url)
     else:
         log.warning("PDF não encontrado no site da CPRH")
@@ -229,8 +305,10 @@ def atualizar_dados():
         }
         DADOS_FILE.write_text(json.dumps(dados, ensure_ascii=False, indent=2), encoding="utf-8")
         log.info(f"✅ {len(praias)} praias salvas da CPRH")
+        registrar_diagnostico(f"SUCESSO: {len(praias)} praias salvas")
     else:
         log.warning("⚠️ Scraper não encontrou dados — mantendo dados anteriores")
+        registrar_diagnostico("FALHA: scraper não retornou nenhuma praia")
 
 
 # ─── Dados de exemplo (fallback com todas as 27 praias) ───────────────────────
@@ -496,6 +574,20 @@ async def responder(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 f"❌ Impróprias: {d.get('total_improprias','?')}\n"
                 f"📊 Fonte: {d.get('fonte','?')}"
             )
+            return
+        if texto == "/diagnostico":
+            diag_file = DADOS_DIR / "ultimo_diagnostico.txt"
+            if diag_file.exists():
+                conteudo = diag_file.read_text(encoding="utf-8")
+                # Pega últimas 30 linhas
+                linhas = conteudo.splitlines()[-30:]
+                resp = "🔍 ÚLTIMAS 30 ENTRADAS DE DIAGNÓSTICO:\n\n" + "\n".join(linhas)
+                # Telegram limit é 4096 chars
+                if len(resp) > 4000:
+                    resp = resp[-4000:]
+                await update.message.reply_text(resp)
+            else:
+                await update.message.reply_text("Sem diagnóstico ainda. Rode /forcar_atualizacao primeiro.")
             return
 
     await update.message.reply_text(formatar_boletim())
