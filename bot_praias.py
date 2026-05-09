@@ -237,28 +237,28 @@ def atualizar_dados():
 
 def dados_exemplo():
     """Retorna dados de exemplo com todas as praias conhecidas."""
-    # Boletim 18/2026 — Publicado 30/04/2026, vigência 30/04 a 07/05
-    # 13 próprias / 14 impróprias
-    # Mudanças vs Bol. 17:
-    #   PIORARAM: Pilar, Janga (Cond. Roberto Barbosa), Candeias (Conj. Candeias II)
-    #   MELHORARAM: Maria Farinha
+    # Boletim 19/2026 — Publicado 08/05/2026, vigência 08/05 a 14/05, coleta 04/05/2026
+    # 11 próprias / 16 impróprias
+    # Mudanças vs Bol. 18:
+    #   PIORARAM: Maria Farinha, Boa Viagem (Posto 8)
+    #   MELHORARAM: nenhuma
     status_map = {
         "Jaguaribe": "IMPRÓPRIA",
-        "Pilar": "IMPRÓPRIA",                            # ← piorou
+        "Pilar": "IMPRÓPRIA",
         "Forte Orange": "PRÓPRIA",
         "Praia do Capitão (Mangue Seco)": "PRÓPRIA",
-        "Maria Farinha": "PRÓPRIA",                      # ← melhorou
-        "Janga (Cond. Roberto Barbosa)": "IMPRÓPRIA",    # ← piorou
+        "Maria Farinha": "IMPRÓPRIA",                    # ← piorou
+        "Janga (Cond. Roberto Barbosa)": "IMPRÓPRIA",
         "Janga (Rua Betânia)": "IMPRÓPRIA",
         "Rio Doce": "IMPRÓPRIA",
         "Bairro Novo": "IMPRÓPRIA",
         "Carmo": "IMPRÓPRIA",
         "Milagres": "IMPRÓPRIA",
         "Pina": "IMPRÓPRIA",
-        "Boa Viagem (Posto 8)": "PRÓPRIA",
+        "Boa Viagem (Posto 8)": "IMPRÓPRIA",             # ← piorou
         "Boa Viagem (Posto 15)": "PRÓPRIA",
         "Piedade": "PRÓPRIA",
-        "Candeias (Conj. Candeias II)": "IMPRÓPRIA",     # ← piorou (5422)
+        "Candeias (Conj. Candeias II)": "IMPRÓPRIA",     # (5422)
         "Candeias (Rest. Candelária)": "IMPRÓPRIA",      # (6476)
         "Barra de Jangadas": "IMPRÓPRIA",
         "Suape": "IMPRÓPRIA",
@@ -281,12 +281,13 @@ def dados_exemplo():
         })
 
     return {
-        "atualizado_em": "2026-05-06T12:00:00",
-        "boletim_nr": "18/2026",
-        "periodo": "30/04 a 07/05",
-        "publicado_em": "30/04/2026",
-        "alteracoes_melhora": ["Maria Farinha"],
-        "alteracoes_piora": ["Pilar", "Janga (Cond. Roberto Barbosa)", "Candeias (Conj. Candeias II)"],
+        "atualizado_em": "2026-05-09T00:00:00",
+        "boletim_nr": "19/2026",
+        "periodo": "08/05 a 14/05",
+        "publicado_em": "08/05/2026",
+        "coleta": "04/05/2026",
+        "alteracoes_melhora": [],
+        "alteracoes_piora": ["Maria Farinha", "Boa Viagem (Posto 8)"],
         "total_proprias": sum(1 for p in praias if p["status"] == "PRÓPRIA"),
         "total_improprias": sum(1 for p in praias if p["status"] == "IMPRÓPRIA"),
         "praias": praias,
