@@ -143,8 +143,11 @@ def scrape_pdf(pdf_url):
 
         with pdfplumber.open(pdf_path) as pdf:
             log.info(f"   PDF aberto: {len(pdf.pages)} páginas")
+            # Capturar todo o texto para diagnóstico se necessário
+            todo_texto = ""
             for page in pdf.pages:
                 texto = page.extract_text() or ""
+                todo_texto += texto + "\n"
                 for linha in texto.splitlines():
                     linha = linha.strip()
                     if not linha:
@@ -174,6 +177,11 @@ def scrape_pdf(pdf_url):
                             "status": status_atual,
                             "municipio": municipio_atual
                         })
+
+            # Se não extraiu nada, salva amostra do texto para diagnóstico
+            if not praias:
+                amostra = todo_texto[:1500].replace("\n", " | ")
+                registrar_diagnostico(f"PARSER FALHOU. Texto extraído ({len(todo_texto)} chars), amostra: {amostra}")
 
         pdf_path.unlink(missing_ok=True)
         log.info(f"📊 PDF extraído: {len(praias)} praias")
