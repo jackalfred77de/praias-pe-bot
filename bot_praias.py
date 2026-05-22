@@ -134,6 +134,10 @@ def scrape_pdf(pdf_url):
         if len(resp.content) < 1000:
             registrar_diagnostico(f"PDF muito pequeno ({len(resp.content)} bytes), provavelmente erro: {resp.text[:200]}")
             return []
+        # Valida que é realmente um PDF (magic bytes %PDF), não HTML de erro
+        if not resp.content[:5].startswith(b"%PDF"):
+            registrar_diagnostico(f"Conteúdo não é PDF (magic={resp.content[:10]}) para {pdf_url}")
+            return []
 
         pdf_path = DADOS_DIR / "temp_balneabilidade.pdf"
         pdf_path.write_bytes(resp.content)
@@ -310,29 +314,36 @@ def encontrar_pdf_cprh():
                     for p in pdf_links[:5]:
                         registrar_diagnostico(f"  PDF: {p}")
 
-                # Heurística: filtra por ano atual e pega o boletim de número mais alto
+                # Heurística: filtra por ano atual e ordena por número de boletim (desc)
                 import re as _re
                 ano_pdfs = [p for p in pdf_links if str(ano_atual) in p]
 
                 if ano_pdfs:
-                    # Padrão CPRH 2024+: "informativo-balneabilidade-19_2026-enterolert.pdf"
-                    # Padrão antigo:     "INFORMATIVO_DA_BANEABILIDADE_DAS_PRAIAS_DE_PERNAMBUCO_19_2026.pdf"
                     def num_boletim(url):
-                        # Procura padrão "NN_AAAA" onde AAAA é o ano atual
+                        # Padrão "NN_AAAA" (ex: 19_2026). Arquivos com nome quebrado → -1
                         m = _re.search(rf"[-_](\d{{1,2}})_{ano_atual}", url)
                         if m:
                             return int(m.group(1))
-                        return 0
-                    ano_pdfs.sort(key=num_boletim, reverse=True)
-                    escolhido = ano_pdfs[0]
-                    registrar_diagnostico(f"ESCOLHIDO (ano {ano_atual}, bol={num_boletim(escolhido)}): {escolhido}")
-                    return escolhido
+                        return -1
+                    # Ordena por número desc; nomes quebrados (-1) vão para o fim,
+                    # MAS são incluídos como candidatos (podem ser o boletim mais novo)
+                    # Mantém ordem original da página para os de número -1 (geralmente cronológica)
+                    com_numero = sorted([p for p in ano_pdfs if num_boletim(p) >= 0],
+                                        key=num_boletim, reverse=True)
+                    sem_numero = [p for p in ano_pdfs if num_boletim(p) < 0]
+                    # Candidatos sem número (nome quebrado) entram PRIMEIRO se aparecem
+                    # antes do maior numerado na página (provável boletim mais recente
+                    # ainda sem nome corrigido). Caso contrário, como fallback no fim.
+                    candidatos = sem_numero + com_numero
+                    registrar_diagnostico(
+                        f"Candidatos ({len(candidatos)}): "
+                        + ", ".join(c.split('/')[-1] for c in candidatos[:4])
+                    )
+                    return candidatos
 
                 if pdf_links:
-                    # Última opção: primeiro PDF da página (geralmente o mais recente em listagens)
-                    escolhido = pdf_links[0]
-                    registrar_diagnostico(f"ESCOLHIDO (primeiro): {escolhido}")
-                    return escolhido
+                    registrar_diagnostico(f"Sem PDF do ano {ano_atual}, usando todos")
+                    return pdf_links
 
             except requests.exceptions.SSLError as e:
                 msg = f"SSLError {url}: {str(e)[:150]}"
@@ -352,7 +363,7 @@ def encontrar_pdf_cprh():
                 registrar_diagnostico(msg)
 
     registrar_diagnostico("Nenhum PDF encontrado em nenhuma URL/UA tentada")
-    return None
+    return []
 
 
 def atualizar_dados():
@@ -366,23 +377,47 @@ def atualizar_dados():
         registrar_diagnostico(msg)
         return
 
-    pdf_url = encontrar_pdf_cprh()
+    candidatos = encontrar_pdf_cprh()
     praias = []
 
-    if pdf_url:
-        log.info(f"   Link encontrado: {pdf_url}")
-        registrar_diagnostico(f"PDF localizado: {pdf_url}")
-        praias = scrape_pdf(pdf_url)
+    if candidatos:
+        # Tenta cada candidato até um funcionar (lida com nomes quebrados/403 da CPRH)
+        for pdf_url in candidatos:
+            log.info(f"   Tentando: {pdf_url}")
+            registrar_diagnostico(f"Tentando PDF: {pdf_url}")
+            praias = scrape_pdf(pdf_url)
+            if praias:
+                registrar_diagnostico(f"PDF OK: {pdf_url}")
+                break
+            else:
+                registrar_diagnostico(f"PDF não rendeu praias, tentando próximo: {pdf_url}")
     else:
         log.warning("PDF não encontrado no site da CPRH")
 
     if praias:
         # Extrai metadados que o scraper anexou na primeira praia
         metadados = praias[0].pop("_metadados", {}) if praias else {}
+        boletim_novo = metadados.get("boletim_nr", "")
+
+        # Proteção: não sobrescrever com boletim mais antigo que o já salvo/embutido
+        num_novo = _num_boletim_int(boletim_novo)
+        num_exemplo = _num_boletim_int(dados_exemplo().get("boletim_nr", ""))
+        num_disco = 0
+        if DADOS_FILE.exists():
+            try:
+                disco = json.loads(DADOS_FILE.read_text(encoding="utf-8"))
+                num_disco = _num_boletim_int(disco.get("boletim_nr", ""))
+            except Exception:
+                pass
+        num_max_atual = max(num_exemplo, num_disco)
+        if num_novo > 0 and num_novo < num_max_atual:
+            log.info(f"⏭️ Boletim {boletim_novo} é mais antigo que o atual ({num_max_atual}) — ignorando scrape")
+            registrar_diagnostico(f"IGNORADO: boletim {boletim_novo} mais antigo que atual")
+            return
 
         dados = {
             "atualizado_em": datetime.now().isoformat(),
-            "boletim_nr": metadados.get("boletim_nr", ""),
+            "boletim_nr": boletim_novo,
             "publicado_em": metadados.get("publicado_em", ""),
             "periodo": metadados.get("periodo", ""),
             "coleta": metadados.get("coleta", ""),
@@ -403,17 +438,17 @@ def atualizar_dados():
 
 def dados_exemplo():
     """Retorna dados de exemplo com todas as praias conhecidas."""
-    # Boletim 19/2026 — Publicado 08/05/2026, vigência 08/05 a 14/05, coleta 04/05/2026
-    # 11 próprias / 16 impróprias
-    # Mudanças vs Bol. 18:
-    #   PIORARAM: Maria Farinha, Boa Viagem (Posto 8)
-    #   MELHORARAM: nenhuma
+    # Boletim 20/2026 — Publicado 15/05/2026, vigência 15/05 a 21/05, coleta 11/05/2026
+    # 10 próprias / 17 impróprias
+    # Mudanças vs Bol. 19:
+    #   PIORARAM: Tamandaré (Rua Nilo Gouveia), São José da Coroa Grande
+    #   MELHORARAM: Boa Viagem (Posto 8)
     status_map = {
         "Jaguaribe": "IMPRÓPRIA",
         "Pilar": "IMPRÓPRIA",
         "Forte Orange": "PRÓPRIA",
         "Praia do Capitão (Mangue Seco)": "PRÓPRIA",
-        "Maria Farinha": "IMPRÓPRIA",                    # ← piorou
+        "Maria Farinha": "IMPRÓPRIA",
         "Janga (Cond. Roberto Barbosa)": "IMPRÓPRIA",
         "Janga (Rua Betânia)": "IMPRÓPRIA",
         "Rio Doce": "IMPRÓPRIA",
@@ -421,7 +456,7 @@ def dados_exemplo():
         "Carmo": "IMPRÓPRIA",
         "Milagres": "IMPRÓPRIA",
         "Pina": "IMPRÓPRIA",
-        "Boa Viagem (Posto 8)": "IMPRÓPRIA",             # ← piorou
+        "Boa Viagem (Posto 8)": "PRÓPRIA",               # ← melhorou
         "Boa Viagem (Posto 15)": "PRÓPRIA",
         "Piedade": "PRÓPRIA",
         "Candeias (Conj. Candeias II)": "IMPRÓPRIA",     # (5422)
@@ -434,8 +469,8 @@ def dados_exemplo():
         "Ponta de Serrambi": "PRÓPRIA",
         "Praia dos Carneiros": "PRÓPRIA",
         "Tamandaré (Hotel Marinas)": "PRÓPRIA",
-        "Tamandaré (Rua Nilo Gouveia)": "PRÓPRIA",
-        "São José da Coroa Grande": "PRÓPRIA",
+        "Tamandaré (Rua Nilo Gouveia)": "IMPRÓPRIA",     # ← piorou
+        "São José da Coroa Grande": "IMPRÓPRIA",         # ← piorou
     }
 
     praias = []
@@ -447,13 +482,13 @@ def dados_exemplo():
         })
 
     return {
-        "atualizado_em": "2026-05-09T00:00:00",
-        "boletim_nr": "19/2026",
-        "periodo": "08/05 a 14/05",
-        "publicado_em": "08/05/2026",
-        "coleta": "04/05/2026",
-        "alteracoes_melhora": [],
-        "alteracoes_piora": ["Maria Farinha", "Boa Viagem (Posto 8)"],
+        "atualizado_em": "2026-05-22T00:00:00",
+        "boletim_nr": "20/2026",
+        "periodo": "15/05 a 21/05",
+        "publicado_em": "15/05/2026",
+        "coleta": "11/05/2026",
+        "alteracoes_melhora": ["Boa Viagem (Posto 8)"],
+        "alteracoes_piora": ["Tamandaré (Rua Nilo Gouveia)", "São José da Coroa Grande"],
         "total_proprias": sum(1 for p in praias if p["status"] == "PRÓPRIA"),
         "total_improprias": sum(1 for p in praias if p["status"] == "IMPRÓPRIA"),
         "praias": praias,
@@ -461,18 +496,28 @@ def dados_exemplo():
     }
 
 
+def _num_boletim_int(boletim_nr):
+    """Converte '20/2026' em inteiro comparável (ano*100 + numero)."""
+    try:
+        partes = str(boletim_nr).split("/")
+        num = int(partes[0])
+        ano = int(partes[1]) if len(partes) > 1 else 0
+        return ano * 100 + num
+    except Exception:
+        return 0
+
+
 def carregar_dados():
     exemplo = dados_exemplo()
     if DADOS_FILE.exists():
         dados = json.loads(DADOS_FILE.read_text(encoding="utf-8"))
-        # Se tem dados reais da CPRH e são mais recentes que o exemplo, usa
         if len(dados.get("praias", [])) >= 10:
-            data_disco = dados.get("atualizado_em", "2000-01-01")
-            data_exemplo = exemplo.get("atualizado_em", "2000-01-01")
-            if data_disco >= data_exemplo:
+            # Compara por número do boletim: usa o mais recente entre disco e exemplo
+            num_disco = _num_boletim_int(dados.get("boletim_nr", ""))
+            num_exemplo = _num_boletim_int(exemplo.get("boletim_nr", ""))
+            if num_disco >= num_exemplo and num_disco > 0:
                 return dados
-            # Exemplo é mais recente (boletim actualizado no código) — usa exemplo
-            log.info(f"⚠️ Dados em disco ({data_disco}) mais antigos que exemplo ({data_exemplo}) — usando exemplo")
+            log.info(f"⚠️ Boletim em disco ({dados.get('boletim_nr')}) <= exemplo ({exemplo.get('boletim_nr')}) — usando exemplo")
     DADOS_FILE.write_text(json.dumps(exemplo, ensure_ascii=False, indent=2), encoding="utf-8")
     return exemplo
 
