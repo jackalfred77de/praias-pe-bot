@@ -28,6 +28,8 @@ DADOS_FILE = DADOS_DIR / "dados_praias.json"
 
 logging.basicConfig(level=logging.INFO)
 log = logging.getLogger("bot_praias")
+# httpx registra a URL completa da API do Telegram, que contém o token.
+logging.getLogger("httpx").setLevel(logging.WARNING)
 
 # Diagnostic: log onde os arquivos serão escritos
 log.info(f"📁 DADOS_DIR = {DADOS_DIR} (exists={DADOS_DIR.exists()})")
@@ -541,12 +543,59 @@ def salvar_assinantes(assinantes):
         encoding="utf-8"
     )
 
+DESCADASTRADOS_FILE = DADOS_DIR / "descadastrados.json"
+
+AVISO_PRIVACIDADE = (
+    "ℹ️ Você vai receber o boletim aqui sempre que ele for atualizado. "
+    "Guardamos só o número deste chat do Telegram, apenas para esse envio. "
+    "Para parar, envie /parar."
+)
+CMD_PARAR = {"/parar", "/stop", "/sair", "parar", "sair"}
+CMD_ASSINAR = {"/assinar", "/voltar", "assinar"}
+
+
+def carregar_descadastrados():
+    if DESCADASTRADOS_FILE.exists():
+        try:
+            return set(json.loads(DESCADASTRADOS_FILE.read_text(encoding="utf-8")))
+        except Exception:
+            return set()
+    return set()
+
+
+def salvar_descadastrados(ids):
+    DESCADASTRADOS_FILE.write_text(json.dumps(sorted(ids)), encoding="utf-8")
+
+
 def adicionar_assinante(chat_id):
-    assinantes = carregar_assinantes()
-    if chat_id not in assinantes:
-        assinantes.add(chat_id)
-        salvar_assinantes(assinantes)
-        log.info(f"➕ Novo assinante: {chat_id} (total: {len(assinantes)})")
+    """Inscreve quem escreve ao bot. Devolve True só na primeira inscrição."""
+    if chat_id in carregar_descadastrados():
+        return False
+    a = carregar_assinantes()
+    if chat_id in a:
+        return False
+    a.add(chat_id)
+    salvar_assinantes(a)
+    log.info(f"➕ Novo assinante (total: {len(a)})")
+    return True
+
+
+def remover_assinante(chat_id):
+    """/parar: tira da lista de envio e lembra a recusa."""
+    a = carregar_assinantes()
+    a.discard(chat_id)
+    salvar_assinantes(a)
+    d = carregar_descadastrados()
+    d.add(chat_id)
+    salvar_descadastrados(d)
+    log.info(f"➖ Assinante saiu (total: {len(a)})")
+
+
+def reativar_assinante(chat_id):
+    d = carregar_descadastrados()
+    d.discard(chat_id)
+    salvar_descadastrados(d)
+    adicionar_assinante(chat_id)
 
 
 # ─── Detecção de boletim novo + broadcast ────────────────────────────────────
@@ -681,8 +730,21 @@ async def responder(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_id = update.message.chat_id
     texto = (update.message.text or "").strip()
 
-    # Registra como assinante automaticamente em qualquer interação
-    adicionar_assinante(chat_id)
+    cmd = texto.split("@")[0].strip().lower()
+    if cmd in CMD_PARAR:
+        remover_assinante(chat_id)
+        await update.message.reply_text(
+            "✅ Pronto. Você não vai mais receber avisos automáticos e seu chat saiu da lista de envio. "
+            "Você pode consultar o bot quando quiser. Para voltar a receber, envie /assinar."
+        )
+        return
+    if cmd in CMD_ASSINAR:
+        reativar_assinante(chat_id)
+        await update.message.reply_text("✅ Você voltou a receber o boletim. Para parar, envie /parar.")
+        return
+
+    # Inscreve automaticamente na primeira interação (quem não pediu para sair)
+    novo = adicionar_assinante(chat_id)
 
     # Comandos admin (só funcionam para ADMIN_CHAT_ID)
     if chat_id == ADMIN_CHAT_ID and texto.startswith("/"):
@@ -724,6 +786,8 @@ async def responder(update: Update, context: ContextTypes.DEFAULT_TYPE):
             return
 
     await update.message.reply_text(formatar_boletim())
+    if novo:
+        await update.message.reply_text(AVISO_PRIVACIDADE)
 
 
 def main():
