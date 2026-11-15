@@ -19,7 +19,7 @@ try:
 except ImportError:
     PDF_SUPPORT = False
 
-TELEGRAM_TOKEN = os.environ.get("TELEGRAM_TOKEN", "8537829811:AAEMKGX_w3kRLPwEQFQ-QnUWO3BG9YmJECk")
+TELEGRAM_TOKEN = os.environ["TELEGRAM_TOKEN"]
 
 # Diretório persistente: /home é volume montado e compartilhado entre Kudu e app container
 DADOS_DIR = Path("/home/data")
