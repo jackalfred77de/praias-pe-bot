@@ -696,8 +696,8 @@ def formatar_boletim():
     ]
 
     mud = mudancas_pe(dados)
-    melhora = dados.get("alteracoes_melhora") or [k for k, v in mud.items() if v == "melhora"]
-    piora = dados.get("alteracoes_piora") or [k for k, v in mud.items() if v == "piora"]
+    melhora = [nome_exibicao(p, dados["praias"]) for p in dados["praias"] if mud.get(chave_praia(p)) == "melhora"]
+    piora = [nome_exibicao(p, dados["praias"]) for p in dados["praias"] if mud.get(chave_praia(p)) == "piora"]
     if dados.get("sem_alteracoes"):
         linhas.append("ℹ️ Sem alterações em relação ao boletim anterior.")
         linhas.append("")
@@ -805,20 +805,47 @@ def municipios_disponiveis():
     return vistos
 
 
-MARCA_MUDANCA = {"melhora": "  📈 melhorou", "piora": "  📉 piorou"}
+MARCA_MUDANCA = {"melhora": "  📈 melhorou", "piora": "  📉 piorou", "igual": "  ➖ igual"}
 
 HIST_FILE = DADOS_DIR / "historico_status.json"
 
 
-def mudancas_pe(dados):
-    """{praia: 'melhora'|'piora'} comparando com o boletim anterior que o bot viu.
+def chave_praia(p):
+    """Código do ponto de coleta (ITA-10…); vários pontos têm o mesmo nome de praia."""
+    return p.get("codigo") or p.get("praia", "")
 
-    O bot guarda o status de cada praia por boletim em historico_status.json;
-    quando chega um boletim novo, o atual vira 'anterior'. Se o próprio
-    boletim trouxer as listas de alteração, elas também valem.
+
+def nome_exibicao(p, praias):
+    """Nome da praia; se outro ponto tem o mesmo nome, acrescenta o local.
+
+    'Praia de Candeias, em frente à Av. … – Restaurante Candelária' -> 'Candeias (Restaurante Candelária)'
+    """
+    nome = p.get("praia", "")
+    if sum(1 for q in praias if q.get("praia") == nome) < 2:
+        return nome
+    comp = p.get("praia_completa", "")
+    local = ""
+    if "–" in comp:
+        local = re.sub(r"\s*\(.*?\)\s*$", "", comp.split("–")[-1]).strip()
+    if not local and "(" in comp:
+        local = comp[comp.rfind("(") + 1:].rstrip(") ").strip()
+    if not local:
+        m = re.search(r"em frente (?:à|ao|a)\s+([^,]+)", comp)
+        local = m.group(1).strip() if m else ""
+    return f"{nome} ({local})" if local else nome
+
+
+def mudancas_pe(dados):
+    """Compara cada ponto com o boletim anterior que o bot conhece.
+
+    Devolve {chave_praia: 'melhora'|'piora'|'igual'} e, quando há base de
+    comparação, a chave '__anterior__' com o número do boletim anterior.
+    O histórico fica em historico_status.json; quando chega um boletim novo,
+    o atual vira 'anterior'.
     """
     res = {}
-    atual = {p["praia"]: p["status"] for p in dados.get("praias", [])}
+    praias = dados.get("praias", [])
+    atual = {chave_praia(p): p["status"] for p in praias}
     nr = dados.get("boletim_nr") or ""
     if dados.get("fonte") != "exemplo" and nr:
         try:
@@ -830,20 +857,24 @@ def mudancas_pe(dados):
                 hist["anterior"] = hist["atual"]
             hist["atual"] = {"nr": nr, "status": atual}
             try:
-                HIST_FILE.write_text(json.dumps(hist, ensure_ascii=False), encoding="utf-8")
+                HIST_FILE.write_text(json.dumps(hist, ensure_ascii=False, indent=1), encoding="utf-8")
             except Exception as e:
                 log.warning(f"Erro ao salvar histórico: {e}")
-        anterior = hist.get("anterior", {}).get("status", {})
+        ant = hist.get("anterior", {})
+        anterior = ant.get("status", {})
         if anterior:
-            res["__conhecido__"] = "sim"
-        for praia, st in atual.items():
-            a = anterior.get(praia)
-            if a and a != st:
-                res[praia] = "melhora" if st == "PRÓPRIA" else "piora"
-    for n in dados.get("alteracoes_melhora", []):
-        res.setdefault(n, "melhora")
-    for n in dados.get("alteracoes_piora", []):
-        res.setdefault(n, "piora")
+            res["__anterior__"] = ant.get("nr", "")
+            for k, st in atual.items():
+                a = anterior.get(k)
+                if a is None:
+                    continue
+                res[k] = "igual" if a == st else ("melhora" if st == "PRÓPRIA" else "piora")
+    # Boletins que já trazem as listas de alteração (nomes de praia)
+    for p in praias:
+        if p.get("praia") in dados.get("alteracoes_melhora", []):
+            res.setdefault(chave_praia(p), "melhora")
+        if p.get("praia") in dados.get("alteracoes_piora", []):
+            res.setdefault(chave_praia(p), "piora")
     return res
 
 
@@ -852,17 +883,12 @@ def formatar_municipio(mun):
     lista = [p for p in dados.get("praias", []) if (p.get("municipio") or "Outras") == mun]
     linhas = [f"📍 {mun.upper()} — boletim {dados.get('boletim_nr', '')}".rstrip(" —"), ""]
     mud = mudancas_pe(dados)
-    n_mud = 0
     for p in lista:
         icone = "🟢" if p["status"] == "PRÓPRIA" else "🔴"
-        m = mud.get(p["praia"], "")
-        n_mud += bool(m)
-        linhas.append(f"{icone} {p['praia']}{MARCA_MUDANCA.get(m, '')}")
+        linhas.append(f"{icone} {nome_exibicao(p, dados['praias'])}{MARCA_MUDANCA.get(mud.get(chave_praia(p), ''), '')}")
     linhas.append("")
-    if n_mud:
-        linhas.append("📈 melhorou  📉 piorou — em relação ao boletim anterior")
-    elif mud.get("__conhecido__"):
-        linhas.append("Sem mudanças em relação ao boletim anterior.")
+    if mud.get("__anterior__"):
+        linhas.append(f"📈 melhorou  📉 piorou  ➖ igual — em relação ao boletim {mud['__anterior__']}")
     linhas += ["🟢 própria  🔴 imprópria", "", "📊 Fonte: CPRH — cprh.pe.gov.br",
                "⚠️ Evite o mar 24h após chuvas fortes"]
     return "\n".join(linhas)
