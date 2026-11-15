@@ -9,8 +9,8 @@ from pathlib import Path
 
 import requests
 from bs4 import BeautifulSoup
-from telegram import Update
-from telegram.ext import Application, MessageHandler, filters, ContextTypes
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
+from telegram.ext import Application, MessageHandler, CallbackQueryHandler, filters, ContextTypes
 from apscheduler.schedulers.background import BackgroundScheduler
 
 try:
@@ -627,7 +627,8 @@ async def broadcast_boletim(application, dados_anterior=None):
             await application.bot.send_message(
                 chat_id=chat_id,
                 text=texto,
-                parse_mode="Markdown"
+                parse_mode="Markdown",
+                reply_markup=teclado_cidades(),
             )
             enviados += 1
         except Exception as e:
@@ -718,6 +719,8 @@ def formatar_boletim():
             linhas.append(f"  {icone} {p['praia']}")
         linhas.append("")
 
+    linhas.append("👇 Toque num município para ver só as praias dele.")
+    linhas.append("")
     linhas.append("📊 Fonte: CPRH — cprh.pe.gov.br")
     linhas.append("⚠️ Evite o mar 24h após chuvas fortes")
 
@@ -785,9 +788,68 @@ async def responder(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 await update.message.reply_text("Sem diagnóstico ainda. Rode /forcar_atualizacao primeiro.")
             return
 
-    await update.message.reply_text(formatar_boletim())
+    await update.message.reply_text(formatar_boletim(), reply_markup=teclado_cidades())
     if novo:
         await update.message.reply_text(AVISO_PRIVACIDADE)
+
+
+
+def municipios_disponiveis():
+    """Municípios do boletim atual, na ordem do boletim (norte → sul)."""
+    vistos = []
+    for p in carregar_dados().get("praias", []):
+        m = p.get("municipio") or "Outras"
+        if m not in vistos:
+            vistos.append(m)
+    return vistos
+
+
+def formatar_municipio(mun):
+    dados = carregar_dados()
+    lista = [p for p in dados.get("praias", []) if (p.get("municipio") or "Outras") == mun]
+    linhas = [f"📍 {mun.upper()} — boletim {dados.get('boletim_nr', '')}".rstrip(" —"), ""]
+    for p in lista:
+        icone = "🟢" if p["status"] == "PRÓPRIA" else "🔴"
+        linhas.append(f"{icone} {p['praia']}")
+    linhas += ["", "🟢 própria  🔴 imprópria", "", "📊 Fonte: CPRH — cprh.pe.gov.br",
+               "⚠️ Evite o mar 24h após chuvas fortes"]
+    return "\n".join(linhas)
+
+# ─── Menu de botões ───────────────────────────────────────────────────────────
+
+def teclado_cidades():
+    botoes = [InlineKeyboardButton(m, callback_data=f"mun:{m}"[:64]) for m in municipios_disponiveis()]
+    linhas = [botoes[i:i + 2] for i in range(0, len(botoes), 2)]
+    linhas.append([InlineKeyboardButton("🔕 Parar avisos", callback_data="parar")])
+    return InlineKeyboardMarkup(linhas)
+
+
+def teclado_voltar():
+    return InlineKeyboardMarkup([[InlineKeyboardButton("⬅️ Todas as cidades", callback_data="resumo")]])
+
+
+async def clique(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    q = update.callback_query
+    if q is None:
+        return
+    await q.answer()
+    dado = q.data or ""
+    try:
+        if dado.startswith("mun:"):
+            mun = dado[4:]
+            if mun in municipios_disponiveis():
+                await q.edit_message_text(formatar_municipio(mun), reply_markup=teclado_voltar())
+        elif dado == "resumo":
+            await q.edit_message_text(formatar_boletim(), reply_markup=teclado_cidades())
+        elif dado == "parar":
+            remover_assinante(q.message.chat_id)
+            await q.message.reply_text(
+                "✅ Pronto. Você não vai mais receber avisos automáticos. "
+                "Para voltar a receber, envie /assinar."
+            )
+    except Exception as e:
+        if "not modified" not in str(e).lower():
+            log.warning(f"Erro no clique: {e}")
 
 
 def main():
@@ -832,6 +894,7 @@ def main():
         .post_init(post_init)
         .build()
     )
+    app.add_handler(CallbackQueryHandler(clique))
     app.add_handler(MessageHandler(filters.ALL, responder))
 
     # Wrapper síncrono para chamar verificar_e_notificar do scheduler
