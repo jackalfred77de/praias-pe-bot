@@ -271,6 +271,16 @@ def registrar_diagnostico(mensagem):
         log.error(f"Erro ao escrever diagnóstico: {e}")
 
 
+def _mes_upload(url):
+    """(ano, mês) da pasta /wp-content/uploads/AAAA/MM/ do link; (0, 0) se não houver."""
+    m = re.search(r"/uploads/(\d{4})/(\d{2})/", url)
+    return (int(m.group(1)), int(m.group(2))) if m else (0, 0)
+
+
+def _tem_numero_no_nome(url):
+    return re.search(r"[-_]\d{1,2}_\d{4}", url.rsplit("/", 1)[-1]) is not None
+
+
 def encontrar_pdf_cprh():
     """Busca o link do PDF mais recente no site da CPRH."""
     ano_atual = datetime.now().year
@@ -333,10 +343,17 @@ def encontrar_pdf_cprh():
                     com_numero = sorted([p for p in ano_pdfs if num_boletim(p) >= 0],
                                         key=num_boletim, reverse=True)
                     sem_numero = [p for p in ano_pdfs if num_boletim(p) < 0]
-                    # Candidatos sem número (nome quebrado) entram PRIMEIRO se aparecem
-                    # antes do maior numerado na página (provável boletim mais recente
-                    # ainda sem nome corrigido). Caso contrário, como fallback no fim.
-                    candidatos = sem_numero + com_numero
+                    # Arquivo sem número (nome quebrado) só concorre se foi enviado no
+                    # mesmo mês do maior numerado ou depois (/uploads/AAAA/MM/). Um PDF
+                    # velho de nome quebrado (ex.: 2026/05/informativo-balneabilidadpdf.pdf)
+                    # não pode passar na frente do boletim da semana. Quem decide no fim
+                    # é o número lido dentro do PDF (ver atualizar_dados).
+                    if com_numero:
+                        corte = _mes_upload(com_numero[0])
+                        recentes = [p for p in sem_numero if _mes_upload(p) >= corte]
+                    else:
+                        recentes = sem_numero
+                    candidatos = recentes + com_numero
                     registrar_diagnostico(
                         f"Candidatos ({len(candidatos)}): "
                         + ", ".join(c.split('/')[-1] for c in candidatos[:4])
@@ -383,16 +400,27 @@ def atualizar_dados():
     praias = []
 
     if candidatos:
-        # Tenta cada candidato até um funcionar (lida com nomes quebrados/403 da CPRH)
-        for pdf_url in candidatos:
+        # Abre os candidatos em ordem e fica com o boletim de MAIOR número lido
+        # dentro do PDF. Os sem número (recentes) vêm antes; o primeiro numerado
+        # que funcionar encerra a busca, porque os seguintes são mais antigos.
+        melhor = None  # (numero, praias, url)
+        for pdf_url in candidatos[:8]:
             log.info(f"   Tentando: {pdf_url}")
             registrar_diagnostico(f"Tentando PDF: {pdf_url}")
-            praias = scrape_pdf(pdf_url)
-            if praias:
-                registrar_diagnostico(f"PDF OK: {pdf_url}")
-                break
-            else:
+            lidas = scrape_pdf(pdf_url)
+            if not lidas:
                 registrar_diagnostico(f"PDF não rendeu praias, tentando próximo: {pdf_url}")
+                continue
+            nr = lidas[0].get("_metadados", {}).get("boletim_nr", "")
+            num = _num_boletim_int(nr)
+            registrar_diagnostico(f"PDF OK: {pdf_url} (boletim {nr or '?'})")
+            if melhor is None or num > melhor[0]:
+                melhor = (num, lidas, pdf_url)
+            if _tem_numero_no_nome(pdf_url):
+                break
+        if melhor:
+            praias = melhor[1]
+            registrar_diagnostico(f"Escolhido: {melhor[2]}")
     else:
         log.warning("PDF não encontrado no site da CPRH")
 
