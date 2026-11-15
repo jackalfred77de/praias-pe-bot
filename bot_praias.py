@@ -695,8 +695,9 @@ def formatar_boletim():
         ""
     ]
 
-    melhora = dados.get("alteracoes_melhora", [])
-    piora = dados.get("alteracoes_piora", [])
+    mud = mudancas_pe(dados)
+    melhora = dados.get("alteracoes_melhora") or [k for k, v in mud.items() if v == "melhora"]
+    piora = dados.get("alteracoes_piora") or [k for k, v in mud.items() if v == "piora"]
     if dados.get("sem_alteracoes"):
         linhas.append("ℹ️ Sem alterações em relação ao boletim anterior.")
         linhas.append("")
@@ -804,14 +805,65 @@ def municipios_disponiveis():
     return vistos
 
 
+MARCA_MUDANCA = {"melhora": "  📈 melhorou", "piora": "  📉 piorou"}
+
+HIST_FILE = DADOS_DIR / "historico_status.json"
+
+
+def mudancas_pe(dados):
+    """{praia: 'melhora'|'piora'} comparando com o boletim anterior que o bot viu.
+
+    O bot guarda o status de cada praia por boletim em historico_status.json;
+    quando chega um boletim novo, o atual vira 'anterior'. Se o próprio
+    boletim trouxer as listas de alteração, elas também valem.
+    """
+    res = {}
+    atual = {p["praia"]: p["status"] for p in dados.get("praias", [])}
+    nr = dados.get("boletim_nr") or ""
+    if dados.get("fonte") != "exemplo" and nr:
+        try:
+            hist = json.loads(HIST_FILE.read_text(encoding="utf-8"))
+        except Exception:
+            hist = {}
+        if hist.get("atual", {}).get("nr") != nr:
+            if hist.get("atual"):
+                hist["anterior"] = hist["atual"]
+            hist["atual"] = {"nr": nr, "status": atual}
+            try:
+                HIST_FILE.write_text(json.dumps(hist, ensure_ascii=False), encoding="utf-8")
+            except Exception as e:
+                log.warning(f"Erro ao salvar histórico: {e}")
+        anterior = hist.get("anterior", {}).get("status", {})
+        if anterior:
+            res["__conhecido__"] = "sim"
+        for praia, st in atual.items():
+            a = anterior.get(praia)
+            if a and a != st:
+                res[praia] = "melhora" if st == "PRÓPRIA" else "piora"
+    for n in dados.get("alteracoes_melhora", []):
+        res.setdefault(n, "melhora")
+    for n in dados.get("alteracoes_piora", []):
+        res.setdefault(n, "piora")
+    return res
+
+
 def formatar_municipio(mun):
     dados = carregar_dados()
     lista = [p for p in dados.get("praias", []) if (p.get("municipio") or "Outras") == mun]
     linhas = [f"📍 {mun.upper()} — boletim {dados.get('boletim_nr', '')}".rstrip(" —"), ""]
+    mud = mudancas_pe(dados)
+    n_mud = 0
     for p in lista:
         icone = "🟢" if p["status"] == "PRÓPRIA" else "🔴"
-        linhas.append(f"{icone} {p['praia']}")
-    linhas += ["", "🟢 própria  🔴 imprópria", "", "📊 Fonte: CPRH — cprh.pe.gov.br",
+        m = mud.get(p["praia"], "")
+        n_mud += bool(m)
+        linhas.append(f"{icone} {p['praia']}{MARCA_MUDANCA.get(m, '')}")
+    linhas.append("")
+    if n_mud:
+        linhas.append("📈 melhorou  📉 piorou — em relação ao boletim anterior")
+    elif mud.get("__conhecido__"):
+        linhas.append("Sem mudanças em relação ao boletim anterior.")
+    linhas += ["🟢 própria  🔴 imprópria", "", "📊 Fonte: CPRH — cprh.pe.gov.br",
                "⚠️ Evite o mar 24h após chuvas fortes"]
     return "\n".join(linhas)
 
@@ -876,8 +928,8 @@ def main():
     # Tenta buscar dados reais da CPRH
     atualizar_dados()
 
-    # Garante que temos dados (reais ou exemplo)
-    carregar_dados()
+    # Garante que temos dados (reais ou exemplo) e registra a base de comparação
+    mudancas_pe(carregar_dados())
 
     # Container para guardar referência ao loop (preenchido em post_init)
     app_loop = {"loop": None}
