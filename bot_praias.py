@@ -80,8 +80,20 @@ PRAIAS_CONHECIDAS = [
 # ─── Mini HTTP server para Azure App Service F1 ──────────────────────────────
 
 class HealthHandler(BaseHTTPRequestHandler):
-    """Responde a health checks do Azure na porta $PORT."""
+    """Responde a health checks do Azure na porta $PORT e serve /wa.json."""
     def do_GET(self):
+        if self.path.split("?")[0] == "/wa.json":
+            try:
+                corpo = json.dumps(dados_whatsapp(), ensure_ascii=False).encode("utf-8")
+                self.send_response(200)
+            except Exception as e:
+                log.warning(f"Erro em /wa.json: {e}")
+                corpo = b'{"ok": false, "estado": "PE"}'
+                self.send_response(500)
+            self.send_header("Content-Type", "application/json; charset=utf-8")
+            self.end_headers()
+            self.wfile.write(corpo)
+            return
         self.send_response(200)
         self.send_header("Content-Type", "text/plain; charset=utf-8")
         self.end_headers()
@@ -640,6 +652,7 @@ def assinatura_boletim(dados):
 
 async def broadcast_boletim(application, dados_anterior=None):
     """Envia boletim atualizado para todos os assinantes."""
+    await enviar_texto_canal(application)
     assinantes = carregar_assinantes()
     if not assinantes:
         log.info("📭 Nenhum assinante para notificar")
@@ -802,6 +815,9 @@ async def responder(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 f"📊 Fonte: {d.get('fonte','?')}"
             )
             return
+        if texto == "/canal":
+            await enviar_texto_canal(application=context.application)
+            return
         if texto == "/diagnostico":
             diag_file = DADOS_DIR / "ultimo_diagnostico.txt"
             if diag_file.exists():
@@ -920,6 +936,71 @@ def formatar_municipio(mun):
     linhas += ["🟢 própria  🔴 imprópria", "", "📊 Fonte: CPRH — cprh.pe.gov.br",
                "⚠️ Evite o mar 24h após chuvas fortes"]
     return "\n".join(linhas)
+
+# ─── WhatsApp (bot de consulta e Canal) ──────────────────────────────────────
+# O app praias-wa-bot lê /wa.json deste bot. O texto do Canal vai para o admin
+# no Telegram, sem parse_mode, para ser copiado e colado no Canal do WhatsApp.
+
+WA_LINK = os.environ.get("WA_LINK", "")  # ex.: https://wa.me/5511999999999
+
+
+def texto_whatsapp(texto, rodape_toque):
+    """Os textos do PE já são texto simples; só troca a linha do botão do Telegram."""
+    linhas = []
+    for linha in texto.split("\n"):
+        if linha.startswith("👇"):
+            if not rodape_toque:
+                continue
+            linha = rodape_toque
+        linhas.append(linha)
+    return "\n".join(linhas)
+
+
+def dados_whatsapp():
+    dados = carregar_dados()
+    if not dados or not dados.get("praias"):
+        return {"ok": False, "estado": "PE"}
+    municipios = []
+    for mun in municipios_disponiveis():
+        lista = [p for p in dados["praias"] if (p.get("municipio") or "Outras") == mun]
+        ruins = sum(1 for p in lista if p.get("status") != "PRÓPRIA")
+        municipios.append({
+            "nome": mun,
+            "proprias": len(lista) - ruins,
+            "improprias": ruins,
+            "praias": [p.get("praia", "") for p in lista],
+            "texto": formatar_municipio(mun),
+        })
+    data = dados.get("publicado_em") or ""
+    return {
+        "ok": True,
+        "estado": "PE",
+        "nome": "Pernambuco",
+        "fonte": dados.get("fonte", ""),
+        "referencia": f"Boletim {dados.get('boletim_nr', '')}" + (f", publicado em {data}" if data else ""),
+        "total_proprias": dados.get("total_proprias"),
+        "total_improprias": dados.get("total_improprias"),
+        "resumo": texto_whatsapp(formatar_boletim(), "👇 Toque em *Ver cidades* ou mande o nome da cidade."),
+        "municipios": municipios,
+        "assinatura": assinatura_boletim(dados),
+    }
+
+
+def texto_canal():
+    rodape = f"👉 Consulte sua cidade no WhatsApp: {WA_LINK}" if WA_LINK else ""
+    return "🆕 *BOLETIM DA SEMANA*\n\n" + texto_whatsapp(formatar_boletim(), rodape)
+
+
+async def enviar_texto_canal(application):
+    """Manda ao admin o texto pronto para o Canal do WhatsApp."""
+    if not ADMIN_CHAT_ID:
+        return
+    try:
+        await application.bot.send_message(chat_id=ADMIN_CHAT_ID, text="📋 Texto para o Canal do WhatsApp (copie a próxima mensagem):")
+        await application.bot.send_message(chat_id=ADMIN_CHAT_ID, text=texto_canal()[:4096])
+    except Exception as e:
+        log.warning(f"Falha ao enviar texto do Canal ao admin: {e}")
+
 
 # ─── Menu de botões ───────────────────────────────────────────────────────────
 

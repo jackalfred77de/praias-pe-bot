@@ -63,6 +63,8 @@ e gravar via Kudu VFS (`PUT .../api/vfs/data/historico_status.json` com `If-Matc
 - Botão de município: praias do município com a comparação acima.
 - Inscrição automática com aviso de privacidade (LGPD); `/parar` (ou botão) e `/assinar`.
 - Broadcast quando o boletim muda. Admin (`ADMIN_CHAT_ID`): `/forcar_atualizacao`, `/forcar_broadcast`, `/stats`, `/diagnostico`.
+- WhatsApp: `/wa.json` (lido pelo app `praias-wa-bot`, código no repositório privado praias-sp-bot, pasta `whatsapp/`).
+  No broadcast o admin recebe o texto pronto para o Canal do WhatsApp; `/canal` repete. App setting opcional `WA_LINK`.
 
 ## Hibernação do F1
 
